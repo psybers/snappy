@@ -1,0 +1,465 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000001 /* SnappyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* SnappyApp.swift */; };
+		A10000000000000000000002 /* MenuBarContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* MenuBarContent.swift */; };
+		A10000000000000000000003 /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* PreferencesView.swift */; };
+		A10000000000000000000004 /* MenuAvailabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* MenuAvailabilityTests.swift */; };
+		A10000000000000000000005 /* MenuAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* MenuAvailability.swift */; };
+		A10000000000000000000006 /* MenuAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* MenuAvailability.swift */; };
+		A10000000000000000000007 /* DomainModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* DomainModels.swift */; };
+		A10000000000000000000008 /* DisplayCoordinateMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* DisplayCoordinateMapper.swift */; };
+		A10000000000000000000009 /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* AppPreferences.swift */; };
+		A1000000000000000000000A /* PreferencesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* PreferencesStore.swift */; };
+		A1000000000000000000000B /* DomainAndPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000016 /* DomainAndPreferencesTests.swift */; };
+		A1000000000000000000000C /* DomainModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* DomainModels.swift */; };
+		A1000000000000000000000D /* DisplayCoordinateMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* DisplayCoordinateMapper.swift */; };
+		A1000000000000000000000E /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* AppPreferences.swift */; };
+		A1000000000000000000000F /* PreferencesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* PreferencesStore.swift */; };
+		A10000000000000000000010 /* DisplayManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000017 /* DisplayManager.swift */; };
+		A10000000000000000000011 /* DisplayManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000018 /* DisplayManagerTests.swift */; };
+		A10000000000000000000012 /* DisplayManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000017 /* DisplayManager.swift */; };
+		A10000000000000000000013 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* AppDelegate.swift */; };
+		A10000000000000000000015 /* DisplayManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000018 /* DisplayManagerTests.swift */; };
+		A10000000000000000000016 /* MeasurementCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001A /* MeasurementCoordinator.swift */; };
+		A10000000000000000000017 /* GlobalInputMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001B /* GlobalInputMonitor.swift */; };
+		A10000000000000000000018 /* GlobalShortcutService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001C /* GlobalShortcutService.swift */; };
+		A10000000000000000000019 /* MeasurementCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001A /* MeasurementCoordinator.swift */; };
+		A1000000000000000000001A /* MeasurementCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001D /* MeasurementCoordinatorTests.swift */; };
+		A1000000000000000000001B /* GlobalInputMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001B /* GlobalInputMonitor.swift */; };
+		A1000000000000000000001C /* GlobalShortcutService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001C /* GlobalShortcutService.swift */; };
+		A1000000000000000000001D /* AccessibilityDetection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001E /* AccessibilityDetection.swift */; };
+		A1000000000000000000001E /* AccessibilityDetectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001F /* AccessibilityDetectionTests.swift */; };
+		A1000000000000000000001F /* AccessibilityDetection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001E /* AccessibilityDetection.swift */; };
+		A10000000000000000000020 /* ScreenCaptureDetection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000021 /* ScreenCaptureDetection.swift */; };
+		A10000000000000000000021 /* ScreenCaptureDetection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000021 /* ScreenCaptureDetection.swift */; };
+		A10000000000000000000022 /* ScreenCaptureDetectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000022 /* ScreenCaptureDetectionTests.swift */; };
+		A10000000000000000000040 /* AnnotationInteraction.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000040 /* AnnotationInteraction.swift */; };
+		A10000000000000000000041 /* AnnotationInteraction.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000040 /* AnnotationInteraction.swift */; };
+		A10000000000000000000042 /* AnnotationInteractionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000042 /* AnnotationInteractionTests.swift */; };
+		A10000000000000000000050 /* SessionPersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000050 /* SessionPersistence.swift */; };
+		A10000000000000000000051 /* SessionPersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000050 /* SessionPersistence.swift */; };
+		A10000000000000000000052 /* SessionPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000052 /* SessionPersistenceTests.swift */; };
+		A10000000000000000000060 /* RectangleSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000060 /* RectangleSelection.swift */; };
+		A10000000000000000000061 /* RectangleSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000060 /* RectangleSelection.swift */; };
+		A10000000000000000000062 /* RectangleSelectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000062 /* RectangleSelectionTests.swift */; };
+		A10000000000000000000070 /* AcceptanceLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000070 /* AcceptanceLifecycleTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		G10000000000000000000002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E10000000000000000000003 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E10000000000000000000001;
+			remoteInfo = Snappy;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		B10000000000000000000001 /* SnappyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnappyApp.swift; sourceTree = "<group>"; };
+		B10000000000000000000002 /* MenuBarContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarContent.swift; sourceTree = "<group>"; };
+		B10000000000000000000003 /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
+		B10000000000000000000004 /* MenuAvailabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuAvailabilityTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000005 /* MenuAvailability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuAvailability.swift; sourceTree = "<group>"; };
+		B10000000000000000000010 /* Snappy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Snappy.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000000000011 /* SnappyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SnappyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000000000012 /* DomainModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainModels.swift; sourceTree = "<group>"; };
+		B10000000000000000000013 /* DisplayCoordinateMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayCoordinateMapper.swift; sourceTree = "<group>"; };
+		B10000000000000000000014 /* AppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
+		B10000000000000000000015 /* PreferencesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesStore.swift; sourceTree = "<group>"; };
+		B10000000000000000000016 /* DomainAndPreferencesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainAndPreferencesTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000017 /* DisplayManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayManager.swift; sourceTree = "<group>"; };
+		B10000000000000000000018 /* DisplayManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayManagerTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000019 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		B1000000000000000000001A /* MeasurementCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementCoordinator.swift; sourceTree = "<group>"; };
+		B1000000000000000000001B /* GlobalInputMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalInputMonitor.swift; sourceTree = "<group>"; };
+		B1000000000000000000001C /* GlobalShortcutService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalShortcutService.swift; sourceTree = "<group>"; };
+		B1000000000000000000001D /* MeasurementCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementCoordinatorTests.swift; sourceTree = "<group>"; };
+		B1000000000000000000001E /* AccessibilityDetection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityDetection.swift; sourceTree = "<group>"; };
+		B1000000000000000000001F /* AccessibilityDetectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityDetectionTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000021 /* ScreenCaptureDetection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCaptureDetection.swift; sourceTree = "<group>"; };
+		B10000000000000000000022 /* ScreenCaptureDetectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCaptureDetectionTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000040 /* AnnotationInteraction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationInteraction.swift; sourceTree = "<group>"; };
+		B10000000000000000000042 /* AnnotationInteractionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationInteractionTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000050 /* SessionPersistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionPersistence.swift; sourceTree = "<group>"; };
+		B10000000000000000000052 /* SessionPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionPersistenceTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000060 /* RectangleSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RectangleSelection.swift; sourceTree = "<group>"; };
+		B10000000000000000000062 /* RectangleSelectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RectangleSelectionTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000070 /* AcceptanceLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcceptanceLifecycleTests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C10000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D10000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				D10000000000000000000002 /* Snappy/App */,
+				D10000000000000000000003 /* SnappyTests */,
+				D10000000000000000000004 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D10000000000000000000002 /* Snappy/App */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000001 /* SnappyApp.swift */,
+				B10000000000000000000002 /* MenuBarContent.swift */,
+				B10000000000000000000003 /* PreferencesView.swift */,
+				B10000000000000000000005 /* MenuAvailability.swift */,
+				B10000000000000000000050 /* SessionPersistence.swift */,
+				B10000000000000000000060 /* RectangleSelection.swift */,
+				B10000000000000000000040 /* AnnotationInteraction.swift */,
+				B10000000000000000000012 /* DomainModels.swift */,
+				B10000000000000000000013 /* DisplayCoordinateMapper.swift */,
+				B10000000000000000000014 /* AppPreferences.swift */,
+				B10000000000000000000015 /* PreferencesStore.swift */,
+				B10000000000000000000017 /* DisplayManager.swift */,
+				B10000000000000000000019 /* AppDelegate.swift */,
+				B1000000000000000000001B /* GlobalInputMonitor.swift */,
+				B1000000000000000000001A /* MeasurementCoordinator.swift */,
+				B1000000000000000000001C /* GlobalShortcutService.swift */,
+				B1000000000000000000001E /* AccessibilityDetection.swift */,
+				B10000000000000000000021 /* ScreenCaptureDetection.swift */,
+			);
+			path = Snappy/App;
+			sourceTree = SOURCE_ROOT;
+		};
+		D10000000000000000000003 /* SnappyTests */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000004 /* MenuAvailabilityTests.swift */,
+				B10000000000000000000052 /* SessionPersistenceTests.swift */,
+				B10000000000000000000062 /* RectangleSelectionTests.swift */,
+				B10000000000000000000070 /* AcceptanceLifecycleTests.swift */,
+				B10000000000000000000042 /* AnnotationInteractionTests.swift */,
+				B10000000000000000000016 /* DomainAndPreferencesTests.swift */,
+				B10000000000000000000018 /* DisplayManagerTests.swift */,
+				B1000000000000000000001D /* MeasurementCoordinatorTests.swift */,
+				B1000000000000000000001F /* AccessibilityDetectionTests.swift */,
+				B10000000000000000000022 /* ScreenCaptureDetectionTests.swift */,
+			);
+			path = SnappyTests;
+			sourceTree = SOURCE_ROOT;
+		};
+		D10000000000000000000004 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000010 /* Snappy.app */,
+				B10000000000000000000011 /* SnappyTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E10000000000000000000001 /* Snappy */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F10000000000000000000001 /* Build configuration list for PBXNativeTarget "Snappy" */;
+			buildPhases = (
+				C10000000000000000000003 /* Sources */,
+				C10000000000000000000001 /* Frameworks */,
+				C10000000000000000000004 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Snappy;
+			productName = Snappy;
+			productReference = B10000000000000000000010 /* Snappy.app */;
+			productType = "com.apple.product-type.application";
+		};
+		E10000000000000000000002 /* SnappyTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F10000000000000000000002 /* Build configuration list for PBXNativeTarget "SnappyTests" */;
+			buildPhases = (
+				C10000000000000000000005 /* Sources */,
+				C10000000000000000000002 /* Frameworks */,
+				C10000000000000000000006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				G10000000000000000000001 /* PBXTargetDependency */,
+			);
+			name = SnappyTests;
+			productName = SnappyTests;
+			productReference = B10000000000000000000011 /* SnappyTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E10000000000000000000003 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 2710;
+				TargetAttributes = {
+					E10000000000000000000001 = {
+						CreatedOnToolsVersion = 27.1;
+					};
+					E10000000000000000000002 = {
+						CreatedOnToolsVersion = 27.1;
+						TestTargetID = E10000000000000000000001;
+					};
+				};
+			};
+			buildConfigurationList = F10000000000000000000003 /* Build configuration list for PBXProject "Snappy" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = D10000000000000000000001;
+			productRefGroup = D10000000000000000000004 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E10000000000000000000001 /* Snappy */,
+				E10000000000000000000002 /* SnappyTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C10000000000000000000004 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10000000000000000000006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C10000000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* SnappyApp.swift in Sources */,
+				A10000000000000000000002 /* MenuBarContent.swift in Sources */,
+				A10000000000000000000003 /* PreferencesView.swift in Sources */,
+				A10000000000000000000005 /* MenuAvailability.swift in Sources */,
+				A10000000000000000000050 /* SessionPersistence.swift in Sources */,
+				A10000000000000000000060 /* RectangleSelection.swift in Sources */,
+				A10000000000000000000040 /* AnnotationInteraction.swift in Sources */,
+				A10000000000000000000007 /* DomainModels.swift in Sources */,
+				A10000000000000000000008 /* DisplayCoordinateMapper.swift in Sources */,
+				A10000000000000000000009 /* AppPreferences.swift in Sources */,
+				A1000000000000000000000A /* PreferencesStore.swift in Sources */,
+				A10000000000000000000010 /* DisplayManager.swift in Sources */,
+				A10000000000000000000013 /* AppDelegate.swift in Sources */,
+				A10000000000000000000016 /* MeasurementCoordinator.swift in Sources */,
+				A10000000000000000000017 /* GlobalInputMonitor.swift in Sources */,
+				A10000000000000000000018 /* GlobalShortcutService.swift in Sources */,
+				A1000000000000000000001D /* AccessibilityDetection.swift in Sources */,
+				A10000000000000000000020 /* ScreenCaptureDetection.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10000000000000000000005 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000004 /* MenuAvailabilityTests.swift in Sources */,
+				A10000000000000000000006 /* MenuAvailability.swift in Sources */,
+				A10000000000000000000051 /* SessionPersistence.swift in Sources */,
+				A10000000000000000000061 /* RectangleSelection.swift in Sources */,
+				A10000000000000000000062 /* RectangleSelectionTests.swift in Sources */,
+				A10000000000000000000070 /* AcceptanceLifecycleTests.swift in Sources */,
+				A10000000000000000000052 /* SessionPersistenceTests.swift in Sources */,
+				A10000000000000000000041 /* AnnotationInteraction.swift in Sources */,
+				A10000000000000000000042 /* AnnotationInteractionTests.swift in Sources */,
+				A1000000000000000000000B /* DomainAndPreferencesTests.swift in Sources */,
+				A1000000000000000000000C /* DomainModels.swift in Sources */,
+				A1000000000000000000000D /* DisplayCoordinateMapper.swift in Sources */,
+				A1000000000000000000000E /* AppPreferences.swift in Sources */,
+				A1000000000000000000000F /* PreferencesStore.swift in Sources */,
+				A10000000000000000000011 /* DisplayManagerTests.swift in Sources */,
+				A10000000000000000000012 /* DisplayManager.swift in Sources */,
+				A10000000000000000000015 /* DisplayManagerTests.swift in Sources */,
+				A10000000000000000000019 /* MeasurementCoordinator.swift in Sources */,
+				A1000000000000000000001A /* MeasurementCoordinatorTests.swift in Sources */,
+				A1000000000000000000001B /* GlobalInputMonitor.swift in Sources */,
+				A1000000000000000000001C /* GlobalShortcutService.swift in Sources */,
+				A1000000000000000000001E /* AccessibilityDetectionTests.swift in Sources */,
+				A1000000000000000000001F /* AccessibilityDetection.swift in Sources */,
+				A10000000000000000000021 /* ScreenCaptureDetection.swift in Sources */,
+				A10000000000000000000022 /* ScreenCaptureDetectionTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		G10000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E10000000000000000000001 /* Snappy */;
+			targetProxy = G10000000000000000000002 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		H10000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				MACOSX_DEPLOYMENT_TARGET = 15.2;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		H10000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				MACOSX_DEPLOYMENT_TARGET = 15.2;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		H10000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGN_IDENTITY = "-";
+				ENABLE_TESTABILITY = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				MACOSX_DEPLOYMENT_TARGET = 15.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.snappy.screenmeasure;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		H10000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGN_IDENTITY = "-";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				MACOSX_DEPLOYMENT_TARGET = 15.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.snappy.screenmeasure;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		H10000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.snappy.screenmeasure.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = Snappy;
+			};
+			name = Debug;
+		};
+		H10000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.snappy.screenmeasure.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = Snappy;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F10000000000000000000001 /* Build configuration list for PBXNativeTarget "Snappy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				H10000000000000000000003 /* Debug */,
+				H10000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F10000000000000000000002 /* Build configuration list for PBXNativeTarget "SnappyTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				H10000000000000000000005 /* Debug */,
+				H10000000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F10000000000000000000003 /* Build configuration list for PBXProject "Snappy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				H10000000000000000000001 /* Debug */,
+				H10000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = E10000000000000000000003 /* Project object */;
+}

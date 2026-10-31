@@ -1,0 +1,179 @@
+import Combine
+import Foundation
+
+enum MeasurementModeState: Equatable {
+    case inactive
+    case tracking(pointer: Point2D)
+    case selecting(start: Point2D, current: Point2D)
+
+    var isActive: Bool {
+        if case .inactive = self { return false }
+        return true
+    }
+
+    var pointer: Point2D? {
+        switch self {
+        case .inactive:
+            nil
+        case .tracking(let pointer):
+            pointer
+        case .selecting(_, let current):
+            current
+        }
+    }
+}
+
+enum MeasurementCommand: Equatable {
+    case pinHorizontal(at: Point2D)
+    case pinVertical(at: Point2D)
+    case addHorizontalGuideline(y: Double)
+    case addVerticalGuideline(x: Double)
+    case selectRectangle(Rect2D)
+}
+
+@MainActor
+final class MeasurementCoordinator: ObservableObject {
+    static let shared = MeasurementCoordinator()
+
+    @Published private(set) var mode: MeasurementModeState = .inactive
+    @Published private(set) var activeSession: MeasurementSession?
+
+    let commands = PassthroughSubject<MeasurementCommand, Never>()
+
+    func startFreshSession(
+        displays: [DisplayDescriptor],
+        pointer: Point2D
+    ) {
+        let validDisplays = displays.filter(\.isValid)
+        // Annotations already on screen (e.g. after Restore Last Session) stay in place.
+        if let existing = activeSession, existing.annotationCount > 0 {
+            mode = .tracking(pointer: pointer)
+            return
+        }
+        activeSession = MeasurementSession(
+            displays: validDisplays.map {
+                DisplayAnnotations(display: $0, annotations: [])
+            }
+        )
+        mode = .tracking(pointer: pointer)
+    }
+
+    func stop() {
+        guard mode.isActive else { return }
+        mode = .inactive
+    }
+
+    func restore(_ session: MeasurementSession, displays: [DisplayDescriptor]) {
+        var restored = session
+        restored.displays = SessionRemapper.remap(session.displays, connected: displays)
+        restored.lastModifiedAt = Date()
+        activeSession = restored
+    }
+
+    func remapSession(to displays: [DisplayDescriptor]) {
+        guard var session = activeSession else { return }
+        let remapped = SessionRemapper.remap(session.displays, connected: displays)
+        guard remapped != session.displays else { return }
+        session.displays = remapped
+        activeSession = session
+    }
+
+    func clearAnnotations() {
+        guard var session = activeSession, session.annotationCount > 0 else { return }
+        for index in session.displays.indices {
+            session.displays[index].annotations.removeAll()
+        }
+        session.lastModifiedAt = Date()
+        activeSession = session
+    }
+
+    func addAnnotation(_ annotation: MeasurementAnnotation) {
+        guard var session = activeSession,
+            let index = session.displays.firstIndex(where: { $0.display.id == annotation.displayID })
+        else {
+            return
+        }
+        session.displays[index].annotations.append(annotation)
+        session.lastModifiedAt = Date()
+        activeSession = session
+    }
+
+    func updateAnnotationGeometry(id: UUID, geometry: AnnotationGeometry) {
+        guard var session = activeSession else { return }
+        for displayIndex in session.displays.indices {
+            if let index = session.displays[displayIndex].annotations.firstIndex(where: { $0.id == id }) {
+                session.displays[displayIndex].annotations[index].geometry = geometry
+                session.lastModifiedAt = Date()
+                activeSession = session
+                return
+            }
+        }
+    }
+
+    func removeAnnotation(id: UUID) {
+        guard var session = activeSession else { return }
+        for displayIndex in session.displays.indices {
+            let before = session.displays[displayIndex].annotations.count
+            session.displays[displayIndex].annotations.removeAll { $0.id == id }
+            if session.displays[displayIndex].annotations.count != before {
+                session.lastModifiedAt = Date()
+                activeSession = session
+                return
+            }
+        }
+    }
+
+    func pointerMoved(to point: Point2D) {
+        guard point.isFinite else { return }
+        switch mode {
+        case .inactive:
+            break
+        case .tracking:
+            mode = .tracking(pointer: point)
+        case .selecting(let start, _):
+            mode = .selecting(start: start, current: point)
+        }
+    }
+
+    func leftMouseDown(at point: Point2D) {
+        guard mode.isActive, point.isFinite else { return }
+        mode = .selecting(start: point, current: point)
+    }
+
+    func leftMouseUp(at point: Point2D) {
+        guard case .selecting(let start, _) = mode,
+              point.isFinite
+        else {
+            return
+        }
+
+        mode = .tracking(pointer: point)
+        let selection = Rect2D(
+            x: min(start.x, point.x),
+            y: min(start.y, point.y),
+            width: abs(point.x - start.x),
+            height: abs(point.y - start.y)
+        )
+        guard selection.isNonEmpty else { return }
+        commands.send(.selectRectangle(selection))
+    }
+
+    func keyDown(key: String, keyCode: UInt16, modifiers: Set<ShortcutModifier>) {
+        guard mode.isActive else { return }
+        if keyCode == 53 {
+            stop()
+            return
+        }
+        guard let pointer = mode.pointer else { return }
+        let character = key.lowercased()
+        if character == "h", modifiers.isEmpty {
+            commands.send(.pinHorizontal(at: pointer))
+        } else if character == "v", modifiers.isEmpty {
+            commands.send(.pinVertical(at: pointer))
+        } else if character == "h", modifiers == [.shift] {
+            commands.send(.addHorizontalGuideline(y: pointer.y))
+        } else if character == "v", modifiers == [.shift] {
+            commands.send(.addVerticalGuideline(x: pointer.x))
+        }
+    }
+}
