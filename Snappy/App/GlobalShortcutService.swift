@@ -2,6 +2,7 @@ import AppKit
 import Carbon
 import Combine
 import Foundation
+import ScreenCaptureKit
 
 private let snappyHotKeyEventHandler: EventHandlerUPP = { _, event, userData in
     guard let event, let userData else { return OSStatus(eventNotHandledErr) }
@@ -56,6 +57,10 @@ final class GlobalShortcutService: ObservableObject {
     ]
     private var modeSubscription: AnyCancellable?
     private static let escapeHotKeyID: UInt32 = 0xE5C
+    /// Returns true when measuring may start; otherwise it triggers the system permission prompt.
+    var screenAccessGate: () async -> Bool = {
+        await ScreenAccessProbe.verify(promptIfDenied: true)
+    }
 
     convenience init() {
         self.init(
@@ -130,6 +135,14 @@ final class GlobalShortcutService: ObservableObject {
             return
         }
         if let identifier, identifier != activeHotKeyID { return }
+        // Without permission, do nothing but let the system dialog be answered.
+        Task { @MainActor [weak self] in
+            guard let self, await screenAccessGate() else { return }
+            beginMeasuring()
+        }
+    }
+
+    private func beginMeasuring() {
         inputMonitor.start()
         coordinator.startFreshSession(
             displays: displayManager.connectedDisplays,
@@ -296,5 +309,55 @@ final class GlobalShortcutService: ObservableObject {
     private func currentPointer() -> Point2D {
         let pointer = NSEvent.mouseLocation
         return Point2D(x: pointer.x, y: pointer.y)
+    }
+}
+
+/// CGPreflightScreenCaptureAccess can stay false after the user grants access until relaunch,
+/// so fall back to asking ScreenCaptureKit directly.
+enum ScreenAccessProbe {
+    @MainActor private(set) static var verified = false
+
+    @MainActor
+    static func verify(promptIfDenied: Bool) async -> Bool {
+        if CGPreflightScreenCaptureAccess() {
+            verified = true
+            return true
+        }
+        if (try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)) != nil {
+            verified = true
+            return true
+        }
+        verified = false
+        guard promptIfDenied else { return false }
+        // macOS only shows its own dialog the first time; afterwards guide the user ourselves.
+        let key = "screenCapturePromptShown"
+        if !UserDefaults.standard.bool(forKey: key) {
+            UserDefaults.standard.set(true, forKey: key)
+            _ = CGRequestScreenCaptureAccess()
+        } else {
+            showEnableAlert()
+        }
+        return false
+    }
+
+    private static var alertShowing = false
+
+    @MainActor
+    private static func showEnableAlert() {
+        guard !alertShowing else { return }
+        alertShowing = true
+        defer { alertShowing = false }
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Snappy needs Screen Recording access"
+        alert.informativeText =
+            "Enable Snappy in System Settings › Privacy & Security › Screen Recording, then press the shortcut again. You may need to relaunch Snappy."
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "Cancel")
+        if alert.runModal() == .alertFirstButtonReturn,
+            let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+        {
+            NSWorkspace.shared.open(url)
+        }
     }
 }

@@ -111,7 +111,9 @@ final class DisplayManager: ObservableObject, MeasurementDisplayProviding, Annot
     }
 
     /// While measuring, the overlays take mouse events so they never reach the app underneath.
-    func setCapturesMouse(_ captures: Bool) {
+    func setCapturesMouse(_ requested: Bool) {
+        // Without Screen Recording access the system permission dialog must stay clickable.
+        let captures = requested && (CGPreflightScreenCaptureAccess() || ScreenAccessProbe.verified)
         capturesMouse = captures
         for panel in overlayWindows.values {
             panel.ignoresMouseEvents = !captures && panel.annotationView?.hover == nil
@@ -280,6 +282,9 @@ extension DisplayManager {
     ) {
         let targetDisplay = connectedDisplays.first {
             $0.logicalBounds.contains(globalPointer)
+        }
+        if case .unavailable(.screenCapturePermissionDenied) = result, capturesMouse {
+            setCapturesMouse(false)
         }
         for (displayID, panel) in overlayWindows {
             guard let display = connectedDisplays.first(where: { $0.id == displayID }),
@@ -708,7 +713,7 @@ final class TemporaryMeasurementOverlayView: NSView {
         case .accessibilityPermissionDenied:
             message = "Accessibility access unavailable"
         case .screenCapturePermissionDenied:
-            message = "Screen Recording unavailable; check Snappy's permission and relaunch"
+            return
         case .screenCaptureFailed, .visionProcessingFailed:
             message = "Screen analysis unavailable"
         case .captureThrottled, .detectionCancelled:
