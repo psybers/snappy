@@ -399,7 +399,7 @@ struct PixelExtentDetector {
     /// that is still considered the same visual area.
     var edgeThreshold = 24
     /// Consecutive pixels (at 1x) a change must persist to count as an edge.
-    var minimumRunPoints = 1
+    var minimumRunPoints = 3
 
     func detect(
         in capturedRegion: CapturedDisplayRegion,
