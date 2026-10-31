@@ -101,6 +101,8 @@ final class DisplayManager: ObservableObject, MeasurementDisplayProviding, Annot
             let hovered = id == displayID ? hit : nil
             panel.annotationView?.hover = hovered
             panel.ignoresMouseEvents = hovered == nil && !capturesMouse
+            // Re-assert the cursor on every pointer move; the system resets it otherwise.
+            if hovered != nil { panel.annotationView?.applyCursor() }
         }
     }
 
@@ -345,6 +347,8 @@ final class TemporaryMeasurementOverlayView: NSView {
             if hover != oldValue {
                 needsDisplay = true
                 applyCursor()
+                // Leaving an annotation outside measuring: hand the cursor back.
+                if hover == nil, oldValue != nil, !showsMeasureCursor { NSCursor.arrow.set() }
             }
         }
     }
@@ -366,11 +370,24 @@ final class TemporaryMeasurementOverlayView: NSView {
         }
     }
 
-    private func applyCursor() {
+    func applyCursor() {
         currentCursor?.set()
     }
 
     override func mouseMoved(with event: NSEvent) { applyCursor() }
+    override func cursorUpdate(with event: NSEvent) { applyCursor() }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(
+            NSTrackingArea(
+                rect: bounds,
+                options: [.mouseMoved, .cursorUpdate, .activeAlways, .inVisibleRect],
+                owner: self,
+                userInfo: nil
+            ))
+    }
 
     func setAnnotations(_ annotations: [MeasurementAnnotation], preferences: AppPreferences) {
         self.annotations = annotations
