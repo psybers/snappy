@@ -287,8 +287,6 @@ extension DisplayManager {
             for display in displays {
                 let displayIDString = display.id
                 guard displayIDString.hasPrefix("cgdisplay-") else { continue }
-                let displayIDStringNumeric = String(displayIDString.dropFirst("cgdisplay-".count))
-                guard let cgDisplayID = UInt32(displayIDStringNumeric) else { continue }
 
                 let displayBounds = CGRect(
                     x: display.logicalBounds.minX,
