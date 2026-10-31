@@ -34,8 +34,8 @@ struct ColorComponents: Codable, Equatable {
     var blue: Double
     var opacity: Double
 
-    static let measurementDefault = ColorComponents(red: 0.9, green: 0.12, blue: 0.12, opacity: 1)
-    static let guidelineDefault = ColorComponents(red: 0.1, green: 0.4, blue: 0.95, opacity: 1)
+    static let measurementDefault = ColorComponents(red: 0.99, green: 0.23, blue: 0.31, opacity: 1)
+    static let guidelineDefault = ColorComponents(red: 0.0, green: 0.48, blue: 1.0, opacity: 1)
 
     var isValid: Bool {
         [red, green, blue, opacity].allSatisfy { $0.isFinite && (0...1).contains($0) }
