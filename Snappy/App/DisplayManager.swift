@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import ScreenCaptureKit
 import CoreGraphics
 
 struct DisplayAnnotationRegistry {
@@ -50,6 +51,7 @@ final class DisplayManager: ObservableObject, MeasurementDisplayProviding, Annot
     private var overlayWindows: [String: ScreenOverlayPanel] = [:]
     private weak var mouseHandler: AnnotationMouseHandling?
     private var capturesMouse = false
+    fileprivate var freezeGeneration = 0
     private var screenChangeObserver: NSObjectProtocol?
 
     var primaryDisplayBounds: Rect2D? {
@@ -275,6 +277,62 @@ final class ScreenOverlayPanel: NSPanel {
 }
 
 extension DisplayManager {
+    /// Captures every display (excluding this app's overlays) and shows the
+    /// result beneath the overlays until `unfreezeScreens()`.
+    func freezeScreens() {
+        freezeGeneration += 1
+        let generation = freezeGeneration
+        let displays = connectedDisplays
+        Task { [weak self] in
+            guard let content = try? await SCShareableContent.excludingDesktopWindows(
+                false, onScreenWindowsOnly: true) else { return }
+            let pid = ProcessInfo.processInfo.processIdentifier
+            let ownApps = content.applications.filter { $0.processID == pid }
+            for display in displays {
+                guard let scDisplay = content.displays.first(where: {
+                    "cgdisplay-\($0.displayID)" == display.id
+                }) else { continue }
+                let configuration = SCStreamConfiguration()
+                let filter = SCContentFilter(display: scDisplay, excludingApplications: ownApps, exceptingWindows: [])
+                // Capture at true backing resolution; CGDisplayPixelsWide reports scaled-mode size.
+                let scale = max(1, Double(filter.pointPixelScale))
+                configuration.width = Int((filter.contentRect.width * scale).rounded())
+                configuration.height = Int((filter.contentRect.height * scale).rounded())
+                configuration.captureResolution = .best
+                configuration.ignoreShadowsDisplay = false
+                configuration.ignoreGlobalClipDisplay = false
+                configuration.shouldBeOpaque = false
+                configuration.showsCursor = false
+                guard let image = try? await SCScreenshotManager.captureImage(
+                    contentFilter: filter, configuration: configuration)
+                else { continue }
+                if ProcessInfo.processInfo.environment["SNAPPY_DEBUG_FREEZE"] != nil || true {
+                    let save = { (img: CGImage, name: String) in
+                        try? NSBitmapImageRep(cgImage: img).representation(using: .png, properties: [:])?
+                            .write(to: URL(fileURLWithPath: "/tmp/snappy-\(name).png"))
+                    }
+                    save(image, "freeze")
+                    let shadowCfg = SCStreamConfiguration()
+                    shadowCfg.width = configuration.width
+                    shadowCfg.height = configuration.height
+                    shadowCfg.capturesShadowsOnly = true
+                    shadowCfg.showsCursor = false
+                    if let shadows = try? await SCScreenshotManager.captureImage(
+                        contentFilter: filter, configuration: shadowCfg) {
+                        save(shadows, "shadows")
+                    }
+                }
+                guard let self, freezeGeneration == generation else { return }
+                overlayWindows[display.id]?.annotationView?.frozenImage = image
+            }
+        }
+    }
+
+    func unfreezeScreens() {
+        freezeGeneration += 1
+        for panel in overlayWindows.values { panel.annotationView?.frozenImage = nil }
+    }
+
     func showTemporaryMeasurement(
         _ result: ElementDetectionResult,
         at globalPointer: Point2D,
@@ -356,6 +414,10 @@ final class TemporaryMeasurementOverlayView: NSView {
                 if hover == nil, oldValue != nil, !showsMeasureCursor { NSCursor.arrow.set() }
             }
         }
+    }
+    /// Snapshot drawn beneath the overlays so on-screen video appears frozen.
+    var frozenImage: CGImage? {
+        didSet { needsDisplay = true }
     }
     var showsMeasureCursor = false {
         didSet { if showsMeasureCursor { applyCursor() } }
@@ -599,6 +661,9 @@ final class TemporaryMeasurementOverlayView: NSView {
         NSGraphicsContext.current?.compositingOperation = .clear
         dirtyRect.fill()
         NSGraphicsContext.restoreGraphicsState()
+        if let frozenImage {
+            NSGraphicsContext.current?.cgContext.draw(frozenImage, in: bounds)
+        }
 
         drawAnnotations()
         drawSelection()
@@ -749,6 +814,7 @@ final class TemporaryMeasurementController {
     private var detectionTask: Task<Void, Never>?
     private var detectionTaskID: UUID?
     private var pointerGeneration = 0
+    private var isMeasuringActive = false
     private var latestPointer: Point2D?
     private var lastResult: ElementDetectionResult?
     private(set) var lastDetectedCandidate: DetectionCandidate?
@@ -799,6 +865,13 @@ final class TemporaryMeasurementController {
     }
 
     private func modeChanged(_ mode: MeasurementModeState) {
+        let wasActive = isMeasuringActive
+        isMeasuringActive = mode.isActive
+        if mode.isActive, !wasActive {
+            (displayManager as? DisplayManager)?.freezeScreens()
+        } else if !mode.isActive, wasActive {
+            (displayManager as? DisplayManager)?.unfreezeScreens()
+        }
         guard case .tracking(let pointer) = mode else {
             detectionTask?.cancel()
             detectionTask = nil
@@ -864,6 +937,17 @@ final class TemporaryMeasurementController {
                 generation == pointerGeneration,
                 coordinator.mode == .tracking(pointer: pointer)
             {
+                var result = result
+                if case .detected(let candidate) = result,
+                    let display = displaySource.connectedDisplays.first(where: { $0.logicalBounds.contains(pointer) }),
+                    let session = coordinator.activeSession
+                {
+                    let local = DisplayCoordinateMapper.globalToDisplayLocal(
+                        pointer, displayBounds: display.logicalBounds)
+                    result = .detected(PinnedLineSnapper.snap(
+                        candidate, pointer: local,
+                        annotations: session.displays.flatMap(\.annotations)))
+                }
                 lastResult = result
                 lastPointer = pointer
                 if case .detected(let candidate) = result {

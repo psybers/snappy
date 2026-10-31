@@ -118,3 +118,21 @@ private final class StubSurface: AnnotationSurfacePresenting {
     func setAnnotationHover(_ hit: AnnotationHit?, onDisplay displayID: String?) {}
     func setAnnotationMouseHandler(_ handler: AnnotationMouseHandling?) {}
 }
+
+final class PinnedLineSnapperTests: XCTestCase {
+    func testGuidelinesAndMeasurementsNarrowDetectedBounds() {
+        let candidate = DetectionCandidate(
+            bounds: Rect2D(x: 0, y: 0, width: 400, height: 300),
+            source: .vision, confidence: 1, displayID: "d")
+        let annotations = [
+            MeasurementAnnotation(displayID: "d", geometry: .guideline(axis: .vertical, position: 100)),
+            MeasurementAnnotation(displayID: "d", geometry: .guideline(axis: .vertical, position: 350)),
+            MeasurementAnnotation(displayID: "d", geometry: .horizontalMeasurement(start: Point2D(x: 100, y: 50), length: 200)),
+            MeasurementAnnotation(displayID: "d", geometry: .verticalMeasurement(start: Point2D(x: 300, y: 0), length: 20)),
+            MeasurementAnnotation(displayID: "other", geometry: .guideline(axis: .vertical, position: 190)),
+        ]
+        let snapped = PinnedLineSnapper.snap(
+            candidate, pointer: Point2D(x: 200, y: 150), annotations: annotations)
+        XCTAssertEqual(snapped.bounds, Rect2D(x: 100, y: 50, width: 250, height: 250))
+    }
+}

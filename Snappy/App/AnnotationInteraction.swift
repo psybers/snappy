@@ -463,3 +463,50 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
             .annotations.first(where: { $0.id == id })
     }
 }
+
+/// Narrows a detected element's bounds so pinned lines (guidelines and
+/// persistent H/V measurements) act as edges, as if they were drawn on screen.
+enum PinnedLineSnapper {
+    static func snap(
+        _ candidate: DetectionCandidate,
+        pointer: Point2D,
+        annotations: [MeasurementAnnotation]
+    ) -> DetectionCandidate {
+        guard let displayID = candidate.displayID else { return candidate }
+        let epsilon = 0.5
+        var minX = candidate.bounds.minX
+        var maxX = candidate.bounds.maxX
+        var minY = candidate.bounds.minY
+        var maxY = candidate.bounds.maxY
+
+        func vertical(_ x: Double) {
+            if x > minX, x < pointer.x - epsilon { minX = x }
+            if x < maxX, x > pointer.x + epsilon { maxX = x }
+        }
+        func horizontal(_ y: Double) {
+            if y > minY, y < pointer.y - epsilon { minY = y }
+            if y < maxY, y > pointer.y + epsilon { maxY = y }
+        }
+
+        for annotation in annotations where annotation.displayID == displayID {
+            switch annotation.geometry {
+            case .guideline(let axis, let position):
+                axis == .vertical ? vertical(position) : horizontal(position)
+            case .verticalMeasurement(let start, let length):
+                if pointer.y >= min(start.y, start.y + length), pointer.y <= max(start.y, start.y + length) {
+                    vertical(start.x)
+                }
+            case .horizontalMeasurement(let start, let length):
+                if pointer.x >= min(start.x, start.x + length), pointer.x <= max(start.x, start.x + length) {
+                    horizontal(start.y)
+                }
+            case .rectangle:
+                break
+            }
+        }
+
+        var snapped = candidate
+        snapped.bounds = Rect2D(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+        return snapped
+    }
+}
