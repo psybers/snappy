@@ -30,6 +30,101 @@ enum AnnotationLayout {
         }
     }
 
+    static func guidelineDistanceLabels(
+        for annotations: [MeasurementAnnotation],
+        axis: AnnotationAxis,
+        displayBounds: Rect2D,
+        fontSize: Double,
+        menuBarHeight: Double = 0
+    ) -> [(region: Rect2D, text: String)] {
+        let guidelines = annotations.filter { annotation in
+            if case .guideline(let gAxis, _) = annotation.geometry, gAxis == axis {
+                return true
+            }
+            return false
+        }.sorted { a, b in
+            guard case .guideline(_, let posA) = a.geometry,
+                  case .guideline(_, let posB) = b.geometry else { return false }
+            return posA < posB
+        }
+
+        guard guidelines.count >= 1 else { return [] }
+
+        var labels: [(region: Rect2D, text: String)] = []
+        let positions = guidelines.compactMap { annotation -> Double? in
+            guard case .guideline(_, let position) = annotation.geometry else { return nil }
+            return position
+        }.sorted()
+
+        let displaySize = axis == .horizontal ? displayBounds.size.height : displayBounds.size.width
+        let edgeOffset = 30.0 // Distance from left edge for horizontal, top edge for vertical
+        let labelSpacing = 5.0 // Minimum spacing between labels
+
+        for i in 0...positions.count {
+            let start: Double
+            let end: Double
+
+            if i == 0 {
+                start = 0
+                end = positions[0]
+            } else if i == positions.count {
+                start = positions[i - 1]
+                end = displaySize
+            } else {
+                start = positions[i - 1]
+                end = positions[i]
+            }
+
+            let distance = end - start
+            guard distance > 1 else { continue } // Skip tiny regions
+
+            let text = "\(Int(distance.rounded())) pt"
+            let size = labelSize(for: text, fontSize: fontSize)
+
+            var region: Rect2D
+            if axis == .horizontal {
+                // Horizontal guidelines (Shift+H): labels at left edge
+                let centerY = (start + end) / 2
+                region = Rect2D(
+                    x: edgeOffset,
+                    y: centerY - size.height / 2,
+                    width: size.width,
+                    height: size.height
+                )
+            } else {
+                // Vertical guidelines (Shift+V): labels at top edge
+                // macOS coordinates have origin at bottom-left, so top is height - offset - menuBarHeight
+                let centerX = (start + end) / 2
+                region = Rect2D(
+                    x: centerX - size.width / 2,
+                    y: displayBounds.size.height - edgeOffset - size.height - menuBarHeight,
+                    width: size.width,
+                    height: size.height
+                )
+
+                // Prevent overlap with previous label
+                if !labels.isEmpty {
+                    let lastRegion = labels.last!.region
+                    let lastMaxX = lastRegion.maxX
+                    if region.minX < lastMaxX + labelSpacing {
+                        // Shift this label to the right
+                        let shift = lastMaxX + labelSpacing - region.minX
+                        region = Rect2D(
+                            x: region.minX + shift,
+                            y: region.minY,
+                            width: region.size.width,
+                            height: region.size.height
+                        )
+                    }
+                }
+            }
+
+            labels.append((region: region, text: text))
+        }
+
+        return labels
+    }
+
     static func labelSize(for text: String, fontSize: Double) -> Size2D {
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: fontSize)

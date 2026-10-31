@@ -391,10 +391,6 @@ final class TemporaryMeasurementOverlayView: NSView {
     var displayID: String?
     weak var mouseHandler: AnnotationMouseHandling?
     private var annotations: [MeasurementAnnotation] = []
-    var selectionRect: Rect2D? {
-        didSet { if selectionRect != oldValue { needsDisplay = true } }
-    }
-    private var annotationPreferences = AppPreferences.default
     var hover: AnnotationHit? {
         didSet {
             if hover != oldValue {
@@ -404,6 +400,10 @@ final class TemporaryMeasurementOverlayView: NSView {
                 if hover == nil, oldValue != nil, !showsMeasureCursor { NSCursor.arrow.set() }
             }
         }
+    }
+    private var annotationPreferences: AppPreferences = AppPreferences()
+    var selectionRect: Rect2D? {
+        didSet { if selectionRect != oldValue { needsDisplay = true } }
     }
     /// Snapshot drawn beneath the overlays so on-screen video appears frozen.
     var frozenImage: CGImage? {
@@ -484,6 +484,69 @@ final class TemporaryMeasurementOverlayView: NSView {
         let measurementColor = Self.color(from: annotationPreferences.measurementColor)
         let guidelineColor = Self.color(from: annotationPreferences.guidelineColor)
         let fontSize = annotationPreferences.dimensionLabelFontSize
+        let displayBounds = Rect2D(x: 0, y: 0, width: bounds.width, height: bounds.height)
+
+        // Draw guideline distance labels whenever guidelines are present
+        // Only show labels for axes that actually have guidelines
+        let hasHorizontalGuidelines = annotations.contains { annotation in
+            if case .guideline(.horizontal, _) = annotation.geometry { return true }
+            return false
+        }
+        let hasVerticalGuidelines = annotations.contains { annotation in
+            if case .guideline(.vertical, _) = annotation.geometry { return true }
+            return false
+        }
+
+        if hasHorizontalGuidelines {
+            let menuBarHeight = NSApp.mainMenu?.menuBarHeight ?? 0
+            let distanceLabels = AnnotationLayout.guidelineDistanceLabels(
+                for: annotations,
+                axis: .horizontal,
+                displayBounds: displayBounds,
+                fontSize: fontSize,
+                menuBarHeight: menuBarHeight
+            )
+            for (region, text) in distanceLabels {
+                let labelRect = NSRect(x: region.minX, y: region.minY, width: region.size.width, height: region.size.height)
+                NSColor.black.withAlphaComponent(0.78).setFill()
+                NSBezierPath(roundedRect: labelRect, xRadius: 4, yRadius: 4).fill()
+                let attributes: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: fontSize),
+                    .foregroundColor: NSColor.white,
+                ]
+                let size = (text as NSString).size(withAttributes: attributes)
+                (text as NSString).draw(
+                    at: NSPoint(x: labelRect.midX - size.width / 2, y: labelRect.midY - size.height / 2),
+                    withAttributes: attributes
+                )
+            }
+        }
+
+        if hasVerticalGuidelines {
+            let menuBarHeight = NSApp.mainMenu?.menuBarHeight ?? 0
+            let distanceLabels = AnnotationLayout.guidelineDistanceLabels(
+                for: annotations,
+                axis: .vertical,
+                displayBounds: displayBounds,
+                fontSize: fontSize,
+                menuBarHeight: menuBarHeight
+            )
+            for (region, text) in distanceLabels {
+                let labelRect = NSRect(x: region.minX, y: region.minY, width: region.size.width, height: region.size.height)
+                NSColor.black.withAlphaComponent(0.78).setFill()
+                NSBezierPath(roundedRect: labelRect, xRadius: 4, yRadius: 4).fill()
+                let attributes: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: fontSize),
+                    .foregroundColor: NSColor.white,
+                ]
+                let size = (text as NSString).size(withAttributes: attributes)
+                (text as NSString).draw(
+                    at: NSPoint(x: labelRect.midX - size.width / 2, y: labelRect.midY - size.height / 2),
+                    withAttributes: attributes
+                )
+            }
+        }
+
         for annotation in annotations {
             let isHovered = hover?.id == annotation.id
             switch annotation.geometry {
