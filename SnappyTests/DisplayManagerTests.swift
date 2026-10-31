@@ -85,7 +85,7 @@ final class DisplayManagerTests: XCTestCase {
         XCTAssertEqual(view.content, .measurement(candidate, Point2D(x: 50, y: 50), preferences))
         XCTAssertEqual(
             view.dimensionLabels,
-            TemporaryDimensionLabels(width: "W: 200 pt", height: "H: 100 pt")
+            TemporaryDimensionLabels(text: "200 × 100 pt")
         )
 
         view.update(
@@ -230,4 +230,18 @@ private final class StubMeasurementDisplayProvider: MeasurementDisplayProviding 
     ) {}
 
     func clearTemporaryMeasurements() {}
+}
+
+final class TemporaryLabelPlacementTests: XCTestCase {
+    func testLabelPrefersBottomRightAndFlipsNearEdges() {
+        let bounds = NSRect(x: 0, y: 0, width: 1000, height: 800)
+        let size = NSSize(width: 100, height: 20)
+        let normal = TemporaryDimensionLabels.origin(pointer: NSPoint(x: 500, y: 400), labelSize: size, in: bounds)
+        XCTAssertGreaterThan(normal.x, 500)
+        XCTAssertLessThan(normal.y, 400)
+        let right = TemporaryDimensionLabels.origin(pointer: NSPoint(x: 990, y: 400), labelSize: size, in: bounds)
+        XCTAssertLessThan(right.x + size.width, 990)
+        let bottom = TemporaryDimensionLabels.origin(pointer: NSPoint(x: 500, y: 5), labelSize: size, in: bounds)
+        XCTAssertGreaterThan(bottom.y, 5)
+    }
 }

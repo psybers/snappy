@@ -49,6 +49,7 @@ final class DisplayManager: ObservableObject, MeasurementDisplayProviding, Annot
 
     private var overlayWindows: [String: ScreenOverlayPanel] = [:]
     private weak var mouseHandler: AnnotationMouseHandling?
+    private var capturesMouse = false
     private var screenChangeObserver: NSObjectProtocol?
 
     var primaryDisplayBounds: Rect2D? {
@@ -99,8 +100,22 @@ final class DisplayManager: ObservableObject, MeasurementDisplayProviding, Annot
         for (id, panel) in overlayWindows {
             let hovered = id == displayID ? hit : nil
             panel.annotationView?.hover = hovered
-            panel.ignoresMouseEvents = hovered == nil
+            panel.ignoresMouseEvents = hovered == nil && !capturesMouse
         }
+    }
+
+    var isHoveringAnnotation: Bool {
+        overlayWindows.values.contains { $0.annotationView?.hover != nil }
+    }
+
+    /// While measuring, the overlays take mouse events so they never reach the app underneath.
+    func setCapturesMouse(_ captures: Bool) {
+        capturesMouse = captures
+        for panel in overlayWindows.values {
+            panel.ignoresMouseEvents = !captures && panel.annotationView?.hover == nil
+            panel.annotationView?.showsMeasureCursor = captures
+        }
+        if !captures { NSCursor.arrow.set() }
     }
 
     func setSelectionRect(_ globalRect: Rect2D?) {
@@ -147,6 +162,8 @@ final class DisplayManager: ObservableObject, MeasurementDisplayProviding, Annot
                 overlayWindows[descriptor.id] = panel
             }
             panel.annotationView?.displayID = descriptor.id
+            panel.ignoresMouseEvents = !capturesMouse
+            panel.annotationView?.showsMeasureCursor = capturesMouse
             panel.annotationView?.mouseHandler = mouseHandler
             panel.orderFrontRegardless()
         }
@@ -181,6 +198,27 @@ final class DisplayManager: ObservableObject, MeasurementDisplayProviding, Annot
     }
 }
 
+enum CursorOverride {
+    private static var enabled = false
+
+    /// Lets this background (accessory) app set the cursor while its overlays are under the pointer.
+    static func enableInBackground() {
+        guard !enabled else { return }
+        enabled = true
+        typealias DefaultConnection = @convention(c) () -> Int32
+        typealias SetProperty = @convention(c) (Int32, Int32, CFString, CFTypeRef) -> Int32
+        guard let handle = dlopen(nil, RTLD_NOW),
+            let connSym = dlsym(handle, "CGSDefaultConnectionForThread"),
+            let setSym = dlsym(handle, "CGSSetConnectionProperty")
+        else {
+            return
+        }
+        let connection = unsafeBitCast(connSym, to: DefaultConnection.self)()
+        _ = unsafeBitCast(setSym, to: SetProperty.self)(
+            connection, connection, "SetsCursorInBackground" as CFString, kCFBooleanTrue)
+    }
+}
+
 @MainActor
 final class ScreenOverlayPanel: NSPanel {
     init(frame: NSRect) {
@@ -194,6 +232,8 @@ final class ScreenOverlayPanel: NSPanel {
         backgroundColor = .clear
         hasShadow = false
         ignoresMouseEvents = true
+        acceptsMouseMovedEvents = true
+        CursorOverride.enableInBackground()
         isReleasedWhenClosed = false
         level = .screenSaver
         collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
@@ -265,18 +305,27 @@ enum TemporaryMeasurementOverlayContent: Equatable {
 }
 
 struct TemporaryDimensionLabels: Equatable {
-    let width: String
-    let height: String
+    let text: String
 
-    init(width: String, height: String) {
-        self.width = width
-        self.height = height
+    init(text: String) {
+        self.text = text
     }
 
     init(candidate: DetectionCandidate) {
         self.init(
-            width: "W: \(Int(candidate.bounds.size.width.rounded())) pt",
-            height: "H: \(Int(candidate.bounds.size.height.rounded())) pt"
+            text: "\(Int(candidate.bounds.size.width.rounded())) × \(Int(candidate.bounds.size.height.rounded())) pt"
+        )
+    }
+
+    /// Prefers the bottom-right of the pointer; flips left/up when that would leave the display.
+    static func origin(pointer: NSPoint, labelSize: NSSize, in bounds: NSRect, offset: CGFloat = 14) -> NSPoint {
+        var x = pointer.x + offset
+        if x + labelSize.width > bounds.maxX { x = pointer.x - offset - labelSize.width }
+        var y = pointer.y - offset - labelSize.height
+        if y < bounds.minY { y = pointer.y + offset }
+        return NSPoint(
+            x: min(max(x, bounds.minX), max(bounds.minX, bounds.maxX - labelSize.width)),
+            y: min(max(y, bounds.minY), max(bounds.minY, bounds.maxY - labelSize.height))
         )
     }
 }
@@ -292,8 +341,36 @@ final class TemporaryMeasurementOverlayView: NSView {
     }
     private var annotationPreferences = AppPreferences.default
     var hover: AnnotationHit? {
-        didSet { if hover != oldValue { needsDisplay = true } }
+        didSet {
+            if hover != oldValue {
+                needsDisplay = true
+                applyCursor()
+            }
+        }
     }
+    var showsMeasureCursor = false {
+        didSet { if showsMeasureCursor { applyCursor() } }
+    }
+
+    private var currentCursor: NSCursor? {
+        guard let hover else { return showsMeasureCursor ? .crosshair : nil }
+        guard let annotation = annotations.first(where: { $0.id == hover.id }) else { return nil }
+        if case .label = hover { return .pointingHand }
+        switch annotation.geometry {
+        case .guideline(let axis, _):
+            return axis == .horizontal ? .resizeUpDown : .resizeLeftRight
+        case .rectangle:
+            return .pointingHand
+        case .horizontalMeasurement, .verticalMeasurement:
+            return .openHand
+        }
+    }
+
+    private func applyCursor() {
+        currentCursor?.set()
+    }
+
+    override func mouseMoved(with event: NSEvent) { applyCursor() }
 
     func setAnnotations(_ annotations: [MeasurementAnnotation], preferences: AppPreferences) {
         self.annotations = annotations
@@ -314,6 +391,7 @@ final class TemporaryMeasurementOverlayView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        applyCursor()
         guard let displayID else { return }
         mouseHandler?.annotationMouseDragged(displayID: displayID, at: localPoint(event))
     }
@@ -372,7 +450,7 @@ final class TemporaryMeasurementOverlayView: NSView {
                 outline.stroke()
             }
             if let text = AnnotationLayout.labelText(for: annotation.geometry),
-                let rect = AnnotationLayout.labelRect(for: annotation.geometry, fontSize: fontSize)
+                let rect = AnnotationLayout.labelRect(for: annotation.geometry, fontSize: fontSize, displaySize: Size2D(width: bounds.width, height: bounds.height))
             {
                 let labelRect = NSRect(x: rect.minX, y: rect.minY, width: rect.size.width, height: rect.size.height)
                 let deleting = hover == .label(annotation.id)
@@ -502,15 +580,9 @@ final class TemporaryMeasurementOverlayView: NSView {
             color: color
         )
 
-        let labels = TemporaryDimensionLabels(candidate: candidate)
         drawLabel(
-            labels.width,
-            centeredAt: NSPoint(x: center.x, y: center.y + 16),
-            preferences: preferences
-        )
-        drawLabel(
-            labels.height,
-            centeredAt: NSPoint(x: center.x + 40, y: center.y - 16),
+            TemporaryDimensionLabels(candidate: candidate).text,
+            nearPointer: center,
             preferences: preferences
         )
     }
@@ -538,7 +610,7 @@ final class TemporaryMeasurementOverlayView: NSView {
 
     private func drawLabel(
         _ text: String,
-        centeredAt point: NSPoint,
+        nearPointer pointer: NSPoint,
         preferences: AppPreferences
     ) {
         let font = NSFont.systemFont(ofSize: preferences.dimensionLabelFontSize)
@@ -548,12 +620,7 @@ final class TemporaryMeasurementOverlayView: NSView {
         ]
         let textSize = (text as NSString).size(withAttributes: attributes)
         let labelSize = NSSize(width: textSize.width + 10, height: textSize.height + 6)
-        let maxX = max(bounds.minX, bounds.maxX - labelSize.width)
-        let maxY = max(bounds.minY, bounds.maxY - labelSize.height)
-        let origin = NSPoint(
-            x: min(max(point.x - labelSize.width / 2, bounds.minX), maxX),
-            y: min(max(point.y - labelSize.height / 2, bounds.minY), maxY)
-        )
+        let origin = TemporaryDimensionLabels.origin(pointer: pointer, labelSize: labelSize, in: bounds)
         let labelRect = NSRect(origin: origin, size: labelSize)
         NSColor.black.withAlphaComponent(0.78).setFill()
         NSBezierPath(roundedRect: labelRect, xRadius: 4, yRadius: 4).fill()
@@ -583,7 +650,7 @@ final class TemporaryMeasurementOverlayView: NSView {
         }
         drawLabel(
             message,
-            centeredAt: NSPoint(x: pointer.x + 70, y: pointer.y + 24),
+            nearPointer: NSPoint(x: pointer.x, y: pointer.y),
             preferences: preferences
         )
     }

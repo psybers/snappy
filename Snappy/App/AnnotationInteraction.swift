@@ -38,7 +38,7 @@ enum AnnotationLayout {
         return Size2D(width: ceil(size.width) + 10, height: ceil(size.height) + 6)
     }
 
-    static func labelRect(for geometry: AnnotationGeometry, fontSize: Double) -> Rect2D? {
+    static func labelRect(for geometry: AnnotationGeometry, fontSize: Double, displaySize: Size2D? = nil) -> Rect2D? {
         guard let text = labelText(for: geometry) else { return nil }
         let size = labelSize(for: text, fontSize: fontSize)
         switch geometry {
@@ -57,14 +57,36 @@ enum AnnotationLayout {
                 height: size.height
             )
         case .rectangle(let rect):
-            // Centred under the bottom edge, or inside it when there is no room below.
+            // Centred inside when it fits, else under the bottom edge, else inside at the bottom.
+            if rect.size.width >= size.width + 2 * labelGap, rect.size.height >= size.height + 2 * labelGap {
+                return Rect2D(
+                    x: rect.minX + rect.size.width / 2 - size.width / 2,
+                    y: rect.minY + rect.size.height / 2 - size.height / 2,
+                    width: size.width,
+                    height: size.height
+                )
+            }
+            let centredX = rect.minX + rect.size.width / 2 - size.width / 2
+            let midY = rect.minY + rect.size.height / 2 - size.height / 2
+            if let display = displaySize {
+                // Near a side edge the label goes on the opposite side of the rectangle.
+                if centredX < 0 {
+                    return Rect2D(x: rect.maxX + labelGap, y: midY, width: size.width, height: size.height)
+                }
+                if centredX + size.width > display.width {
+                    return Rect2D(
+                        x: rect.minX - labelGap - size.width, y: midY, width: size.width, height: size.height)
+                }
+            }
             let below = rect.minY - labelGap - size.height
-            return Rect2D(
-                x: rect.minX + rect.size.width / 2 - size.width / 2,
-                y: below >= 0 ? below : rect.minY + labelGap,
-                width: size.width,
-                height: size.height
-            )
+            if below < 0 {
+                let above = rect.maxY + labelGap
+                if displaySize == nil || above + size.height <= displaySize!.height {
+                    return Rect2D(x: centredX, y: above, width: size.width, height: size.height)
+                }
+                return Rect2D(x: centredX, y: rect.minY + labelGap, width: size.width, height: size.height)
+            }
+            return Rect2D(x: centredX, y: below, width: size.width, height: size.height)
         case .guideline:
             return nil
         }
@@ -89,13 +111,14 @@ enum AnnotationHitTester {
     static func hit(
         at point: Point2D,
         in annotations: [MeasurementAnnotation],
-        labelFontSize: Double
+        labelFontSize: Double,
+        displaySize: Size2D? = nil
     ) -> AnnotationHit? {
         let tolerance = AnnotationLayout.hitTolerance
         let newestFirst = annotations.reversed()
 
         for annotation in newestFirst {
-            if let rect = AnnotationLayout.labelRect(for: annotation.geometry, fontSize: labelFontSize),
+            if let rect = AnnotationLayout.labelRect(for: annotation.geometry, fontSize: labelFontSize, displaySize: displaySize),
                 rect.contains(point)
             {
                 return .label(annotation.id)
@@ -371,7 +394,8 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
         return AnnotationHitTester.hit(
             at: local,
             in: group.annotations,
-            labelFontSize: preferencesStore.preferences.dimensionLabelFontSize
+            labelFontSize: preferencesStore.preferences.dimensionLabelFontSize,
+            displaySize: group.display.logicalBounds.size
         )
     }
 

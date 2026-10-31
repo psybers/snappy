@@ -76,6 +76,16 @@ final class RectangleSelectionTests: XCTestCase {
         XCTAssertFalse(AnnotationHitTester.onOutline(Point2D(x: 140, y: 130), of: rect, tolerance: 4))
     }
 
+    func testRectangleLabelInsideWhenLargeBelowWhenSmall() {
+        let large = Rect2D(x: 100, y: 100, width: 200, height: 100)
+        let inside = AnnotationLayout.labelRect(for: .rectangle(large), fontSize: 12)!
+        XCTAssertTrue(large.contains(Point2D(x: inside.minX, y: inside.minY)))
+        XCTAssertTrue(large.contains(Point2D(x: inside.maxX, y: inside.maxY)))
+        let small = Rect2D(x: 100, y: 100, width: 20, height: 10)
+        let below = AnnotationLayout.labelRect(for: .rectangle(small), fontSize: 12)!
+        XCTAssertLessThanOrEqual(below.maxY, small.minY)
+    }
+
     func testSelectionRectNormalisesDrag() {
         let r = RectangleSelectionController.rect(from: Point2D(x: 50, y: 40), to: Point2D(x: 10, y: 90))
         XCTAssertEqual(r, Rect2D(x: 10, y: 40, width: 40, height: 50))

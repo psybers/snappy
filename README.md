@@ -29,7 +29,7 @@ Preferences explains both permissions, can request them, and opens the matching 
 | Move the mouse | Horizontal and vertical measurement lines with T caps and W/H labels |
 | `H` / `V` | Pin the current horizontal / vertical measurement |
 | `Shift+H` / `Shift+V` | Add a horizontal / vertical guideline at the pointer (spans that display) |
-| Drag | Select a region; on release it becomes a persistent rectangle snapped to the content found |
+| Drag | Select a region (the app underneath does not receive the drag); on release it becomes a persistent rectangle snapped to the content found |
 | Hover a pinned item | Drag measurements and guidelines to move them |
 | Click a measurement label (shows ✕) / rectangle outline or label | Delete it |
 | Right-click a guideline | Delete it |
@@ -61,7 +61,7 @@ Detection is event-driven (no polling timers); pointer updates are coalesced, on
 ## Known limitations
 
 - Vision and pixel-extent results are heuristics, not semantic UI element boundaries; ambiguous areas report "unavailable" rather than guessed bounds.
-- Mouse events are observed globally and not intercepted, so a selection drag also reaches the app underneath. Clicks on a pinned item are handled by Snappy's overlay.
+- While measuring, Snappy's overlays capture all mouse events (nothing reaches the app underneath) and show a crosshair cursor; guidelines show resize cursors. Cursor changes from a background app use a private CoreGraphics connection property; if a cursor does not change on your macOS version, that is the cause.
 - A selection is analysed on a single display; the visual fallback only looks inside the dragged area.
 - Non-US keyboard layouts are not guaranteed for the shortcut key mapping.
 - Protected/DRM content may not be capturable. Display IDs come from `CGDirectDisplayID` and are matched by characteristics when they change across restarts.

@@ -14,6 +14,8 @@ final class GlobalInputMonitor: ObservableObject {
     private let coordinator: MeasurementCoordinator
     private let permissionManager: AccessibilityPermissionManager
     private var mouseMonitor: Any?
+    private var localMouseMonitor: Any?
+    private var gestureOnAnnotation = false
     private var keyboardMonitor: Any?
 
     init(
@@ -40,10 +42,36 @@ final class GlobalInputMonitor: ObservableObject {
                 }
             }
         }
+        if localMouseMonitor == nil {
+            // Overlays capture the mouse while measuring, so those events arrive locally.
+            let mask: NSEvent.EventTypeMask = [.leftMouseDown, .leftMouseDragged, .leftMouseUp]
+            localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
+                let location = NSEvent.mouseLocation
+                let point = Point2D(x: location.x, y: location.y)
+                MainActor.assumeIsolated {
+                    self?.handleLocalMouse(event.type, at: point)
+                }
+                return event
+            }
+        }
         refreshKeyboardPermission()
     }
 
+    private func handleLocalMouse(_ type: NSEvent.EventType, at point: Point2D) {
+        if type == .leftMouseDown {
+            gestureOnAnnotation = DisplayManager.shared.isHoveringAnnotation
+        }
+        let suppressed = gestureOnAnnotation
+        if type == .leftMouseUp { gestureOnAnnotation = false }
+        guard !suppressed else { return }
+        handleMouseEvent(type, at: point)
+    }
+
     func stop() {
+        if let localMouseMonitor {
+            NSEvent.removeMonitor(localMouseMonitor)
+            self.localMouseMonitor = nil
+        }
         if let mouseMonitor {
             NSEvent.removeMonitor(mouseMonitor)
             self.mouseMonitor = nil

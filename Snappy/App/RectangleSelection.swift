@@ -201,6 +201,7 @@ protocol SelectionSurfacePresenting: AnyObject {
     var connectedDisplays: [DisplayDescriptor] { get }
     var primaryDisplayBounds: Rect2D? { get }
     func setSelectionRect(_ globalRect: Rect2D?)
+    func setCapturesMouse(_ captures: Bool)
 }
 
 /// Drives the temporary drag rectangle and, on release, creates the persistent rectangle.
@@ -229,6 +230,7 @@ final class RectangleSelectionController {
         coordinator.$mode
             .sink { [weak self] mode in
                 guard let self else { return }
+                surface.setCapturesMouse(mode.isActive)
                 if case .selecting(let start, let current) = mode {
                     surface.setSelectionRect(Self.rect(from: start, to: current))
                 } else {
@@ -250,6 +252,7 @@ final class RectangleSelectionController {
         analysisTask?.cancel()
         cancellables.removeAll()
         surface.setSelectionRect(nil)
+        surface.setCapturesMouse(false)
     }
 
     nonisolated static func rect(from a: Point2D, to b: Point2D) -> Rect2D {
