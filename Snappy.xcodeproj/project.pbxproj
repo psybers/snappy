@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000090 /* Assets.xcassets */; };
 		A10000000000000000000001 /* SnappyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* SnappyApp.swift */; };
 		A10000000000000000000002 /* MenuBarContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* MenuBarContent.swift */; };
 		A10000000000000000000003 /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* PreferencesView.swift */; };
@@ -63,6 +64,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		B10000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Snappy/Assets.xcassets; sourceTree = "<group>"; };
 		B10000000000000000000001 /* SnappyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnappyApp.swift; sourceTree = "<group>"; };
 		B10000000000000000000002 /* MenuBarContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarContent.swift; sourceTree = "<group>"; };
 		B10000000000000000000003 /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
@@ -117,6 +119,7 @@
 			isa = PBXGroup;
 			children = (
 				D10000000000000000000002 /* Snappy/App */,
+				B10000000000000000000090 /* Assets.xcassets */,
 				D10000000000000000000003 /* SnappyTests */,
 				D10000000000000000000004 /* Products */,
 			);
@@ -253,6 +256,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000090 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
