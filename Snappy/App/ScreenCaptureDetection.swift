@@ -8,6 +8,38 @@ struct CapturedDisplayRegion {
     let image: CGImage
     let displayID: String
     let displayLocalBounds: Rect2D
+
+    /// Crop a full-display image using display-local, bottom-left coordinates.
+    static func cropping(
+        _ image: CGImage,
+        to region: Rect2D,
+        on display: DisplayDescriptor
+    ) throws -> CapturedDisplayRegion {
+        let scaleX = Double(image.width) / display.logicalBounds.size.width
+        let scaleY = Double(image.height) / display.logicalBounds.size.height
+        // CGImage cropping uses a top-left origin. Round out to whole pixels
+        // and report the corresponding bounds so detection retains its scale.
+        let crop = CGRect(
+            x: region.minX * scaleX,
+            y: (display.logicalBounds.size.height - region.maxY) * scaleY,
+            width: region.size.width * scaleX,
+            height: region.size.height * scaleY
+        ).integral.intersection(CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        guard !crop.isNull, !crop.isEmpty,
+              let croppedImage = image.cropping(to: crop)
+        else { throw ScreenCaptureError.captureReturnedNoImage }
+
+        return CapturedDisplayRegion(
+            image: croppedImage,
+            displayID: display.id,
+            displayLocalBounds: Rect2D(
+                x: crop.minX / scaleX,
+                y: display.logicalBounds.size.height - crop.maxY / scaleY,
+                width: crop.width / scaleX,
+                height: crop.height / scaleY
+            )
+        )
+    }
 }
 
 @MainActor
@@ -60,13 +92,24 @@ final class ScreenRecordingPermissionManager: ObservableObject, ScreenCaptureAut
 @MainActor
 final class ScreenCaptureKitRegionCapturer: ScreenRegionCapturing {
     private let permissionManager: ScreenCaptureAuthorizationChecking
+    private let captureDisplay: (UInt32) async throws -> CGImage
 
     convenience init() {
         self.init(permissionManager: ScreenRecordingPermissionManager.shared)
     }
 
-    init(permissionManager: ScreenCaptureAuthorizationChecking) {
+    init(
+        permissionManager: ScreenCaptureAuthorizationChecking,
+        captureDisplay: @escaping (UInt32) async throws -> CGImage = { displayID in
+            let content = try await SCShareableContent.excludingDesktopWindows(
+                false,
+                onScreenWindowsOnly: true
+            )
+            return try await DisplayManager.captureDisplayImage(displayID, from: content)
+        }
+    ) {
         self.permissionManager = permissionManager
+        self.captureDisplay = captureDisplay
     }
 
     func capture(
@@ -83,41 +126,21 @@ final class ScreenCaptureKitRegionCapturer: ScreenRegionCapturing {
         }
 
         _ = permissionManager.refresh()
-        guard permissionManager.isAuthorized else {
-            throw ScreenCaptureError.permissionDenied
-        }
+        // Preflight can remain false even when ScreenCaptureKit has access
+        // (see ScreenAccessProbe). Let the capture API determine access instead
+        // of silently disabling live measurements before attempting a capture.
 
-        let displayIDString = display.id
-        guard displayIDString.hasPrefix("cgdisplay-") else {
+        guard display.id.hasPrefix("cgdisplay-"),
+              let cgDisplayID = UInt32(
+                  display.id.dropFirst("cgdisplay-".count)
+              )
+        else {
             throw ScreenCaptureError.displayUnavailable
         }
 
-        let displayIDStringNumeric = String(displayIDString.dropFirst("cgdisplay-".count))
-        guard let cgDisplayID = UInt32(displayIDStringNumeric) else {
-            throw ScreenCaptureError.displayUnavailable
-        }
+        let image = try await captureDisplay(cgDisplayID)
 
-        let regionCGRect = CGRect(
-            x: region.minX,
-            y: display.logicalBounds.size.height - region.maxY,
-            width: region.size.width,
-            height: region.size.height
-        )
-
-        guard let image = CGWindowListCreateImage(
-            regionCGRect,
-            .optionAll,
-            kCGNullWindowID,
-            .bestResolution
-        ) else {
-            throw ScreenCaptureError.captureReturnedNoImage
-        }
-
-        return CapturedDisplayRegion(
-            image: image,
-            displayID: display.id,
-            displayLocalBounds: region
-        )
+        return try CapturedDisplayRegion.cropping(image, to: region, on: display)
     }
 }
 

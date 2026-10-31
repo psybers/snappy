@@ -4,6 +4,76 @@ import XCTest
 
 @MainActor
 final class ScreenCaptureDetectionTests: XCTestCase {
+    func testRegionCaptureUsesScreenCaptureKitDespiteNegativeLegacyPermissionCheck() async throws {
+        let permission = ScreenPermissionStub(authorized: false)
+        let display = DisplayDescriptor(
+            id: "cgdisplay-123",
+            logicalBounds: Rect2D(x: 0, y: 0, width: 1000, height: 800),
+            pixelWidth: 2000,
+            pixelHeight: 1600,
+            backingScale: 2
+        )
+        let image = try blankFixture(width: 2000, height: 1600)
+        var requestedDisplayID: UInt32?
+        let capturer = ScreenCaptureKitRegionCapturer(permissionManager: permission) { displayID in
+            requestedDisplayID = displayID
+            return image
+        }
+        let region = Rect2D(x: 200, y: 50, width: 400, height: 300)
+
+        let captured = try await capturer.capture(region: region, on: display)
+
+        XCTAssertFalse(permission.isAuthorized)
+        XCTAssertEqual(requestedDisplayID, 123)
+        XCTAssertEqual(captured.displayLocalBounds, region)
+        XCTAssertEqual(captured.image.width, 800)
+        XCTAssertEqual(captured.image.height, 600)
+    }
+
+    func testFullDisplayCaptureIsCroppedBeforePointerDetection() throws {
+        for scale in [1, 2] {
+            let display = DisplayDescriptor(
+                id: "cgdisplay-test",
+                logicalBounds: Rect2D(x: -1000, y: 500, width: 1000, height: 800),
+                pixelWidth: 1000 * scale,
+                pixelHeight: 800 * scale,
+                backingScale: Double(scale)
+            )
+            let context = try imageContext(width: 1000 * scale, height: 800 * scale)
+            context.scaleBy(x: CGFloat(scale), y: CGFloat(scale))
+            context.setFillColor(CGColor(gray: 1, alpha: 1))
+            context.fill(CGRect(x: 0, y: 0, width: 1000, height: 800))
+            context.setFillColor(CGColor(gray: 0, alpha: 1))
+            context.fill(CGRect(x: 300, y: 100, width: 160, height: 80))
+
+            let region = Rect2D(x: 200, y: 50, width: 400, height: 300)
+            let captured = try CapturedDisplayRegion.cropping(
+                XCTUnwrap(context.makeImage()), to: region, on: display
+            )
+            XCTAssertEqual(captured.image.width, 400 * scale)
+            XCTAssertEqual(captured.image.height, 300 * scale)
+            XCTAssertEqual(captured.displayLocalBounds, region)
+            let candidate = try XCTUnwrap(PixelExtentDetector().detect(
+                in: captured, pointer: Point2D(x: 350, y: 140), display: display
+            ))
+            XCTAssertEqual(candidate.bounds.minX, 300, accuracy: 1.5)
+            XCTAssertEqual(candidate.bounds.maxX, 460, accuracy: 1.5)
+            XCTAssertEqual(candidate.bounds.minY, 100, accuracy: 1.5)
+            XCTAssertEqual(candidate.bounds.maxY, 180, accuracy: 1.5)
+        }
+    }
+
+    func testFractionalCropReportsPixelAlignedBounds() throws {
+        let captured = try CapturedDisplayRegion.cropping(
+            blankFixture(width: 2000, height: 1600),
+            to: Rect2D(x: 200.2, y: 50.2, width: 400, height: 300),
+            on: makeDisplay()
+        )
+        XCTAssertEqual(captured.image.width, 801)
+        XCTAssertEqual(captured.image.height, 601)
+        XCTAssertEqual(captured.displayLocalBounds, Rect2D(x: 200, y: 50, width: 400.5, height: 300.5))
+    }
+
     func testPixelExtentDetectorFindsUniformAreaAroundPointer() throws {
         let display = makeDisplay()
         let region = Rect2D(x: 0, y: 0, width: 320, height: 240)

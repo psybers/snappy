@@ -277,41 +277,117 @@ final class ScreenOverlayPanel: NSPanel {
 }
 
 extension DisplayManager {
+    static func captureDisplayImage(
+        _ displayID: UInt32,
+        from content: SCShareableContent
+    ) async throws -> CGImage {
+        guard let display = content.displays.first(where: {
+            $0.displayID == displayID
+        }) else {
+            throw ScreenCaptureError.displayUnavailable
+        }
+
+        let filter = SCContentFilter(
+            display: display,
+            excludingWindows: content.windows.filter {
+                $0.owningApplication?.processID == ProcessInfo.processInfo.processIdentifier
+            }
+        )
+
+        let configuration = SCScreenshotConfiguration()
+
+        // Request the native display pixel resolution.
+        let scale = CGFloat(filter.pointPixelScale)
+
+        configuration.width = Int(
+            (filter.contentRect.width * scale).rounded()
+        )
+
+        configuration.height = Int(
+            (filter.contentRect.height * scale).rounded()
+        )
+
+        // Preserve OS-rendered window shadows.
+        configuration.ignoreShadows = false
+
+        // Don't include the mouse cursor in the frozen image.
+        configuration.showsCursor = false
+
+        // Optimize the image for presentation on this display.
+        configuration.displayIntent = .local
+        configuration.dynamicRange = .sdr
+
+        let output = try await SCScreenshotManager.captureScreenshot(
+            contentFilter: filter,
+            configuration: configuration
+        )
+
+        guard let image = output.sdrImage else {
+            throw ScreenCaptureError.captureReturnedNoImage
+        }
+
+        return image
+    }
+
     /// Captures every display (excluding this app's overlays) and shows the
     /// result beneath the overlays until `unfreezeScreens()`.
     func freezeScreens() {
         freezeGeneration += 1
         let generation = freezeGeneration
         let displays = connectedDisplays
-        Task { [weak self] in
-            for display in displays {
-                let displayIDString = display.id
-                guard displayIDString.hasPrefix("cgdisplay-") else { continue }
 
-                let displayBounds = CGRect(
-                    x: display.logicalBounds.minX,
-                    y: display.logicalBounds.minY,
-                    width: display.logicalBounds.size.width,
-                    height: display.logicalBounds.size.height
+        Task { [weak self] in
+            guard let self else { return }
+
+            do {
+                let content = try await SCShareableContent.excludingDesktopWindows(
+                    false,
+                    onScreenWindowsOnly: true
                 )
 
-                guard let image = CGWindowListCreateImage(
-                    displayBounds,
-                    .optionAll,
-                    kCGNullWindowID,
-                    .bestResolution
-                ) else { continue }
+                var capturedImages: [(displayID: String, image: CGImage)] = []
 
-                if ProcessInfo.processInfo.environment["SNAPPY_DEBUG_FREEZE"] != nil {
-                    let save = { (img: CGImage, name: String) in
-                        try? NSBitmapImageRep(cgImage: img).representation(using: .png, properties: [:])?
-                            .write(to: URL(fileURLWithPath: "/tmp/snappy-\(name).png"))
+                for display in displays {
+                    guard display.isValid,
+                          display.id.hasPrefix("cgdisplay-"),
+                          let cgDisplayID = UInt32(
+                              display.id.dropFirst("cgdisplay-".count)
+                          )
+                    else {
+                        continue
                     }
-                    save(image, "freeze")
+
+                    let image = try await DisplayManager.captureDisplayImage(
+                        cgDisplayID,
+                        from: content
+                    )
+
+                    capturedImages.append((display.id, image))
                 }
 
-                guard let self, freezeGeneration == generation else { return }
-                overlayWindows[display.id]?.annotationView?.frozenImage = image
+                // Ignore results from an older freeze operation.
+                guard freezeGeneration == generation else {
+                    return
+                }
+
+                // Don't freeze only part of the desktop.
+                let validDisplayCount = displays.filter(\.isValid).count
+
+                guard capturedImages.count == validDisplayCount else {
+                    NSLog("Failed to capture all displays for freeze")
+                    return
+                }
+
+                // Apply all images only after every capture succeeds.
+                for (displayID, image) in capturedImages {
+                    overlayWindows[displayID]?.annotationView?.frozenImage = image
+                }
+
+            } catch {
+                NSLog(
+                    "Failed to freeze screens: %@",
+                    error.localizedDescription
+                )
             }
         }
     }

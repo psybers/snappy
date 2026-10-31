@@ -6,7 +6,7 @@ This was vibe coded with GitHub Copilot. I don't know Swift and had never made a
 
 ## Build and setup
 
-1. Open `Snappy.xcodeproj` in Xcode and build/run the **Snappy** scheme (macOS 15.2+, required for ScreenCaptureKit one-shot region capture).
+1. Open `Snappy.xcodeproj` in Xcode and build/run the **Snappy** scheme (macOS 26.0+, required for ScreenCaptureKit one-shot region capture).
 2. Run tests: `xcodebuild -project Snappy.xcodeproj -scheme Snappy -destination 'platform=macOS' test` (70 tests).
 3. Grant permissions on first use (below).
 

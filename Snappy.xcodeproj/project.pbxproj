@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A10000000000000000000090 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000090 /* Assets.xcassets */; };
 		A10000000000000000000001 /* SnappyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* SnappyApp.swift */; };
 		A10000000000000000000002 /* MenuBarContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* MenuBarContent.swift */; };
 		A10000000000000000000003 /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* PreferencesView.swift */; };
@@ -51,6 +50,7 @@
 		A10000000000000000000061 /* RectangleSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000060 /* RectangleSelection.swift */; };
 		A10000000000000000000062 /* RectangleSelectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000062 /* RectangleSelectionTests.swift */; };
 		A10000000000000000000070 /* AcceptanceLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000070 /* AcceptanceLifecycleTests.swift */; };
+		A10000000000000000000090 /* Snappy/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000090 /* Snappy/Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -64,7 +64,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		B10000000000000000000090 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Snappy/Assets.xcassets; sourceTree = "<group>"; };
 		B10000000000000000000001 /* SnappyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnappyApp.swift; sourceTree = "<group>"; };
 		B10000000000000000000002 /* MenuBarContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarContent.swift; sourceTree = "<group>"; };
 		B10000000000000000000003 /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
@@ -95,6 +94,7 @@
 		B10000000000000000000060 /* RectangleSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RectangleSelection.swift; sourceTree = "<group>"; };
 		B10000000000000000000062 /* RectangleSelectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RectangleSelectionTests.swift; sourceTree = "<group>"; };
 		B10000000000000000000070 /* AcceptanceLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcceptanceLifecycleTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000090 /* Snappy/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Snappy/Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -119,7 +119,7 @@
 			isa = PBXGroup;
 			children = (
 				D10000000000000000000002 /* Snappy/App */,
-				B10000000000000000000090 /* Assets.xcassets */,
+				B10000000000000000000090 /* Snappy/Assets.xcassets */,
 				D10000000000000000000003 /* SnappyTests */,
 				D10000000000000000000004 /* Products */,
 			);
@@ -256,7 +256,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10000000000000000000090 /* Assets.xcassets in Resources */,
+				A10000000000000000000090 /* Snappy/Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -380,7 +380,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.snappy.screenmeasure;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -398,7 +398,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.snappy.screenmeasure;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -411,7 +411,7 @@
 			buildSettings = {
 				CODE_SIGNING_ALLOWED = NO;
 				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.snappy.screenmeasure.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -425,7 +425,7 @@
 			buildSettings = {
 				CODE_SIGNING_ALLOWED = NO;
 				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.snappy.screenmeasure.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
