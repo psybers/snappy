@@ -221,6 +221,44 @@ final class ElementDetectionService: ElementDetecting {
     private let minimumCaptureInterval: TimeInterval
     private let captureRegionSize: Size2D
     private var lastCaptureDate = Date.distantPast
+    private var cache: CachedCapture?
+    private var refreshTask: Task<Void, Never>?
+    private let cacheMargin = 120.0
+    private let cacheRefreshAge: TimeInterval = 1.0
+
+    private struct CachedCapture {
+        let captured: CapturedDisplayRegion
+        let pixels: [UInt8]?
+        let date: Date
+    }
+
+    /// The cached capture can serve a pointer that is comfortably inside it,
+    /// which keeps per-move detection to a cheap pixel scan.
+    private func usableCache(for display: DisplayDescriptor, pointer: Point2D) -> CachedCapture? {
+        guard let cache, cache.captured.displayID == display.id else { return nil }
+        let region = cache.captured.displayLocalBounds
+        let size = display.logicalBounds.size
+        let fitsX = (pointer.x - region.minX >= cacheMargin || region.minX <= 0)
+            && (region.maxX - pointer.x >= cacheMargin || region.maxX >= size.width)
+        let fitsY = (pointer.y - region.minY >= cacheMargin || region.minY <= 0)
+            && (region.maxY - pointer.y >= cacheMargin || region.maxY >= size.height)
+        return region.contains(pointer) && fitsX && fitsY ? cache : nil
+    }
+
+    private func refreshCache(around globalPointer: Point2D, on display: DisplayDescriptor) {
+        guard refreshTask == nil else { return }
+        let region = captureRegion(around: globalPointer, on: display)
+        refreshTask = Task { [weak self] in
+            guard let self else { return }
+            defer { refreshTask = nil }
+            guard let captured = try? await screenCapturer.capture(region: region, on: display) else { return }
+            cache = CachedCapture(
+                captured: captured,
+                pixels: extentDetector == nil ? nil : PixelExtentDetector.rgbaPixels(of: captured.image),
+                date: Date()
+            )
+        }
+    }
 
     convenience init() {
         self.init(
@@ -277,31 +315,47 @@ final class ElementDetectionService: ElementDetecting {
         else {
             return .unavailable(.noConfidentBoundary)
         }
-        guard now.timeIntervalSince(lastCaptureDate) >= minimumCaptureInterval else {
-            return .unavailable(.captureThrottled)
-        }
-        lastCaptureDate = now
-
-        let region = captureRegion(around: globalPointer, on: display)
-        guard region.isNonEmpty else {
-            return .unavailable(.noConfidentBoundary)
-        }
-
+        let localPointer = DisplayCoordinateMapper.globalToDisplayLocal(
+            globalPointer,
+            displayBounds: display.logicalBounds
+        )
         let captured: CapturedDisplayRegion
-        do {
-            try Task.checkCancellation()
-            captured = try await screenCapturer.capture(region: region, on: display)
-            try Task.checkCancellation()
-        } catch is CancellationError {
-            return .unavailable(.detectionCancelled)
-        } catch ScreenCaptureError.permissionDenied {
-            return .unavailable(.screenCapturePermissionDenied)
-        } catch {
-            return .unavailable(
-                screenPermission.refresh()
-                    ? .screenCaptureFailed
-                    : .screenCapturePermissionDenied
-            )
+        var pixels: [UInt8]?
+        if let cached = usableCache(for: display, pointer: localPointer) {
+            captured = cached.captured
+            pixels = cached.pixels
+            if now.timeIntervalSince(cached.date) > cacheRefreshAge {
+                refreshCache(around: globalPointer, on: display)
+            }
+        } else {
+            guard now.timeIntervalSince(lastCaptureDate) >= minimumCaptureInterval else {
+                return .unavailable(.captureThrottled)
+            }
+            lastCaptureDate = now
+
+            let region = captureRegion(around: globalPointer, on: display)
+            guard region.isNonEmpty else {
+                return .unavailable(.noConfidentBoundary)
+            }
+            do {
+                try Task.checkCancellation()
+                captured = try await screenCapturer.capture(region: region, on: display)
+                try Task.checkCancellation()
+            } catch is CancellationError {
+                return .unavailable(.detectionCancelled)
+            } catch ScreenCaptureError.permissionDenied {
+                return .unavailable(.screenCapturePermissionDenied)
+            } catch {
+                return .unavailable(
+                    screenPermission.refresh()
+                        ? .screenCaptureFailed
+                        : .screenCapturePermissionDenied
+                )
+            }
+            if extentDetector != nil {
+                pixels = PixelExtentDetector.rgbaPixels(of: captured.image)
+            }
+            cache = CachedCapture(captured: captured, pixels: pixels, date: Date())
         }
 
         if let extentDetector {
@@ -309,7 +363,7 @@ final class ElementDetectionService: ElementDetecting {
                 globalPointer,
                 displayBounds: display.logicalBounds
             )
-            return extentDetector.detect(in: captured, pointer: pointer, display: display)
+            return extentDetector.detect(in: captured, pointer: pointer, display: display, pixels: pixels)
                 .map(ElementDetectionResult.detected) ?? .unavailable(.noConfidentBoundary)
         }
 
@@ -357,7 +411,8 @@ struct PixelExtentDetector {
     func detect(
         in capturedRegion: CapturedDisplayRegion,
         pointer: Point2D,
-        display: DisplayDescriptor
+        display: DisplayDescriptor,
+        pixels precomputed: [UInt8]? = nil
     ) -> DetectionCandidate? {
         let region = capturedRegion.displayLocalBounds
         let image = capturedRegion.image
@@ -367,7 +422,7 @@ struct PixelExtentDetector {
               region.contains(pointer),
               image.width > 0,
               image.height > 0,
-              let pixels = Self.rgbaPixels(of: image)
+              let pixels = precomputed ?? Self.rgbaPixels(of: image)
         else {
             return nil
         }

@@ -522,17 +522,69 @@ final class TemporaryMeasurementOverlayView: NSView {
                 return
             }
             content = .measurement(candidate, pointer, preferences)
+            let target = AnimatedGeometry(
+                rect: NSRect(
+                    x: candidate.bounds.minX, y: candidate.bounds.minY,
+                    width: candidate.bounds.size.width, height: candidate.bounds.size.height),
+                pointer: NSPoint(x: pointer.x, y: pointer.y))
+            animationTarget = target
+            if displayedGeometry == nil { displayedGeometry = target } else { startAnimation() }
         case .unavailable(let failure):
-            guard failure != .captureThrottled && failure != .detectionCancelled else {
-                clear()
-                return
-            }
+            // Keep the previous indicator rather than blanking it on transient failures.
+            guard failure != .captureThrottled && failure != .detectionCancelled else { return }
             content = .unavailable(pointer, failure, preferences)
+            resetAnimation()
         }
         needsDisplay = true
     }
 
+    private struct AnimatedGeometry {
+        var rect: NSRect
+        var pointer: NSPoint
+    }
+
+    private var displayedGeometry: AnimatedGeometry?
+    private var animationTarget: AnimatedGeometry?
+    private var animationTimer: Timer?
+
+    private func resetAnimation() {
+        animationTimer?.invalidate()
+        animationTimer = nil
+        displayedGeometry = nil
+        animationTarget = nil
+    }
+
+    private func startAnimation() {
+        guard animationTimer == nil else { return }
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.stepAnimation() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        animationTimer = timer
+    }
+
+    private func stepAnimation() {
+        guard var current = displayedGeometry, let target = animationTarget else {
+            resetAnimation()
+            return
+        }
+        let factor: CGFloat = 0.3
+        func ease(_ a: CGFloat, _ b: CGFloat) -> CGFloat { abs(b - a) < 0.25 ? b : a + (b - a) * factor }
+        current.rect = NSRect(
+            x: ease(current.rect.minX, target.rect.minX), y: ease(current.rect.minY, target.rect.minY),
+            width: ease(current.rect.width, target.rect.width), height: ease(current.rect.height, target.rect.height))
+        current.pointer = NSPoint(
+            x: ease(current.pointer.x, target.pointer.x), y: ease(current.pointer.y, target.pointer.y))
+        displayedGeometry = current
+        needsDisplay = true
+        if current.rect == target.rect, current.pointer == target.pointer {
+            animationTimer?.invalidate()
+            animationTimer = nil
+        }
+    }
+
     func clear() {
+        resetAnimation()
         content = nil
         needsDisplay = true
     }
@@ -576,13 +628,13 @@ final class TemporaryMeasurementOverlayView: NSView {
         preferences: AppPreferences
     ) {
         let color = Self.color(from: preferences.measurementColor)
-        let rect = NSRect(
+        let rect = displayedGeometry?.rect ?? NSRect(
             x: candidate.bounds.minX,
             y: candidate.bounds.minY,
             width: candidate.bounds.size.width,
             height: candidate.bounds.size.height
         )
-        let center = NSPoint(x: pointer.x, y: pointer.y)
+        let center = displayedGeometry?.pointer ?? NSPoint(x: pointer.x, y: pointer.y)
 
         drawDimensionLine(
             from: NSPoint(x: rect.minX, y: center.y),
@@ -706,7 +758,7 @@ final class TemporaryMeasurementController {
         displayManager: TemporaryMeasurementPresenting,
         displaySource: MeasurementDisplayProviding,
         preferencesStore: PreferencesStore,
-        minimumDetectionInterval: TimeInterval = 0.12
+        minimumDetectionInterval: TimeInterval = 0.01
     ) {
         self.coordinator = coordinator
         self.detector = detector
@@ -761,7 +813,6 @@ final class TemporaryMeasurementController {
             if lastResult != nil {
                 lastResult = nil
                 lastPointer = nil
-                displayManager.clearTemporaryMeasurements()
             }
         }
         if detectionTask == nil {
