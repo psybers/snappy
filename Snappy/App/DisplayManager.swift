@@ -284,44 +284,34 @@ extension DisplayManager {
         let generation = freezeGeneration
         let displays = connectedDisplays
         Task { [weak self] in
-            guard let content = try? await SCShareableContent.excludingDesktopWindows(
-                false, onScreenWindowsOnly: true) else { return }
-            let pid = ProcessInfo.processInfo.processIdentifier
-            let ownApps = content.applications.filter { $0.processID == pid }
             for display in displays {
-                guard let scDisplay = content.displays.first(where: {
-                    "cgdisplay-\($0.displayID)" == display.id
-                }) else { continue }
-                let configuration = SCStreamConfiguration()
-                let filter = SCContentFilter(display: scDisplay, excludingApplications: ownApps, exceptingWindows: [])
-                // Capture at true backing resolution; CGDisplayPixelsWide reports scaled-mode size.
-                let scale = max(1, Double(filter.pointPixelScale))
-                configuration.width = Int((filter.contentRect.width * scale).rounded())
-                configuration.height = Int((filter.contentRect.height * scale).rounded())
-                configuration.captureResolution = .best
-                configuration.ignoreShadowsDisplay = false
-                configuration.ignoreGlobalClipDisplay = false
-                configuration.shouldBeOpaque = false
-                configuration.showsCursor = false
-                guard let image = try? await SCScreenshotManager.captureImage(
-                    contentFilter: filter, configuration: configuration)
-                else { continue }
-                if ProcessInfo.processInfo.environment["SNAPPY_DEBUG_FREEZE"] != nil || true {
+                let displayIDString = display.id
+                guard displayIDString.hasPrefix("cgdisplay-") else { continue }
+                let displayIDStringNumeric = String(displayIDString.dropFirst("cgdisplay-".count))
+                guard let cgDisplayID = UInt32(displayIDStringNumeric) else { continue }
+
+                let displayBounds = CGRect(
+                    x: display.logicalBounds.minX,
+                    y: display.logicalBounds.minY,
+                    width: display.logicalBounds.size.width,
+                    height: display.logicalBounds.size.height
+                )
+
+                guard let image = CGWindowListCreateImage(
+                    displayBounds,
+                    .optionAll,
+                    kCGNullWindowID,
+                    .bestResolution
+                ) else { continue }
+
+                if ProcessInfo.processInfo.environment["SNAPPY_DEBUG_FREEZE"] != nil {
                     let save = { (img: CGImage, name: String) in
                         try? NSBitmapImageRep(cgImage: img).representation(using: .png, properties: [:])?
                             .write(to: URL(fileURLWithPath: "/tmp/snappy-\(name).png"))
                     }
                     save(image, "freeze")
-                    let shadowCfg = SCStreamConfiguration()
-                    shadowCfg.width = configuration.width
-                    shadowCfg.height = configuration.height
-                    shadowCfg.capturesShadowsOnly = true
-                    shadowCfg.showsCursor = false
-                    if let shadows = try? await SCScreenshotManager.captureImage(
-                        contentFilter: filter, configuration: shadowCfg) {
-                        save(shadows, "shadows")
-                    }
                 }
+
                 guard let self, freezeGeneration == generation else { return }
                 overlayWindows[display.id]?.annotationView?.frozenImage = image
             }

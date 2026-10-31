@@ -82,44 +82,37 @@ final class ScreenCaptureKitRegionCapturer: ScreenRegionCapturing {
             throw ScreenCaptureError.displayUnavailable
         }
 
-        let content: SCShareableContent
-        do {
-            content = try await SCShareableContent.excludingDesktopWindows(
-                false,
-                onScreenWindowsOnly: true
-            )
-        } catch let error as NSError
-            where error.domain == SCStreamErrorDomain
-            && error.code == SCStreamError.userDeclined.rawValue
-        {
+        _ = permissionManager.refresh()
+        guard permissionManager.isAuthorized else {
             throw ScreenCaptureError.permissionDenied
         }
-        guard let scDisplay = content.displays.first(where: {
-            "cgdisplay-\($0.displayID)" == display.id
-        }) else {
+
+        let displayIDString = display.id
+        guard displayIDString.hasPrefix("cgdisplay-") else {
             throw ScreenCaptureError.displayUnavailable
         }
 
-        let ownWindows = content.windows.filter {
-            $0.owningApplication?.processID == ProcessInfo.processInfo.processIdentifier
+        let displayIDStringNumeric = String(displayIDString.dropFirst("cgdisplay-".count))
+        guard let cgDisplayID = UInt32(displayIDStringNumeric) else {
+            throw ScreenCaptureError.displayUnavailable
         }
-        let filter = SCContentFilter(display: scDisplay, excludingWindows: ownWindows)
-        let configuration = SCStreamConfiguration()
-        let sourceRect = CGRect(
+
+        let regionCGRect = CGRect(
             x: region.minX,
             y: display.logicalBounds.size.height - region.maxY,
             width: region.size.width,
             height: region.size.height
         )
-        configuration.sourceRect = sourceRect
-        configuration.width = max(1, Int(ceil(region.size.width * display.backingScale)))
-        configuration.height = max(1, Int(ceil(region.size.height * display.backingScale)))
-        configuration.showsCursor = false
 
-        let image = try await SCScreenshotManager.captureImage(
-            contentFilter: filter,
-            configuration: configuration
-        )
+        guard let image = CGWindowListCreateImage(
+            regionCGRect,
+            .optionAll,
+            kCGNullWindowID,
+            .bestResolution
+        ) else {
+            throw ScreenCaptureError.captureReturnedNoImage
+        }
+
         return CapturedDisplayRegion(
             image: image,
             displayID: display.id,
