@@ -568,13 +568,12 @@ final class TemporaryMeasurementOverlayView: NSView {
             resetAnimation()
             return
         }
-        let factor: CGFloat = 0.3
+        let factor: CGFloat = 0.5
         func ease(_ a: CGFloat, _ b: CGFloat) -> CGFloat { abs(b - a) < 0.25 ? b : a + (b - a) * factor }
         current.rect = NSRect(
             x: ease(current.rect.minX, target.rect.minX), y: ease(current.rect.minY, target.rect.minY),
             width: ease(current.rect.width, target.rect.width), height: ease(current.rect.height, target.rect.height))
-        current.pointer = NSPoint(
-            x: ease(current.pointer.x, target.pointer.x), y: ease(current.pointer.y, target.pointer.y))
+        current.pointer = target.pointer
         displayedGeometry = current
         needsDisplay = true
         if current.rect == target.rect, current.pointer == target.pointer {
@@ -634,7 +633,7 @@ final class TemporaryMeasurementOverlayView: NSView {
             width: candidate.bounds.size.width,
             height: candidate.bounds.size.height
         )
-        let center = displayedGeometry?.pointer ?? NSPoint(x: pointer.x, y: pointer.y)
+        let center = NSPoint(x: pointer.x, y: pointer.y)
 
         drawDimensionLine(
             from: NSPoint(x: rect.minX, y: center.y),
