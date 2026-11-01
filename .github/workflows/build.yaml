@@ -1,0 +1,56 @@
+name: Build and Sign macOS App
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+
+    permissions:
+      contents: write  # Gives permission to upload files to Releases
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build App
+        run: |
+          xcodebuild archive \
+            -project Snappy.xcodeproj \
+            -scheme Snappy \
+            -configuration Release \
+            -archivePath $RUNNER_TEMP/Snappy.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Extract build .app from archive wrapper
+        run: |
+          mkdir -p build
+          cp -R $RUNNER_TEMP/Snappy.xcarchive/Products/Applications/Snappy.app build/
+
+      - name: Ad-Hoc Sign Application
+        run: |
+          # Force an ad-hoc signature ('-') deeply through the bundle
+          codesign --force --deep --sign - build/Snappy.app
+
+      - name: Package into a DMG
+        run: |
+          # It is highly recommended to distribute as a DMG or a ZIP
+          # Install 'create-dmg' via brew on the runner if you want a fancy DMG
+          hdiutil create -volname "Snappy Installer" -format UDZO -srcfolder build/Snappy.app -ov Snappy-${{ github.ref_name }}.dmg
+
+      - name: Upload Release Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Snappy
+          path: Snappy-${{ github.ref_name }}.dmg
+
+      - name: Upload DMG to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Uploads the file directly to the release matching current tag
+          gh release upload ${{ github.ref_name }} Snappy-${{ github.ref_name }}.dmg --clobber
