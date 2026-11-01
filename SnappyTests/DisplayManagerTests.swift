@@ -149,6 +149,89 @@ final class DisplayManagerTests: XCTestCase {
         controller.stop()
     }
 
+    @MainActor
+    func testShiftCrosshairUpdatesImmediatelyAndRejectsPendingDetection() async throws {
+        let display = makeDisplay(id: "display-a", x: 0)
+        let coordinator = MeasurementCoordinator()
+        let pointer = Point2D(x: 40, y: 50)
+        coordinator.startFreshSession(displays: [display], pointer: pointer)
+        let detector = StubElementDetector(responses: [
+            (0.1, .unavailable(.noConfidentBoundary)),
+            (0, .unavailable(.noConfidentBoundary))
+        ])
+        let presenter = StubMeasurementPresenter()
+        let controller = TemporaryMeasurementController(
+            coordinator: coordinator, detector: detector, displayManager: presenter,
+            displaySource: StubMeasurementDisplayProvider(display: display),
+            preferencesStore: PreferencesStore(defaults: UserDefaults(suiteName: UUID().uuidString)!),
+            minimumDetectionInterval: 0
+        )
+        controller.start()
+        defer { controller.stop() }
+        try await Task.sleep(nanoseconds: 20_000_000)
+        XCTAssertEqual(detector.callCount, 1)
+        coordinator.updateShiftState(true)
+        let moved = Point2D(x: 100, y: 150)
+        coordinator.pointerMoved(to: moved)
+        XCTAssertTrue(coordinator.mode.shiftHeld)
+        XCTAssertEqual(presenter.crosshairPointers, [pointer, moved])
+        try await Task.sleep(nanoseconds: 150_000_000)
+        XCTAssertEqual(detector.callCount, 1)
+        XCTAssertTrue(presenter.presentedResults.isEmpty)
+
+        coordinator.updateShiftState(false)
+        try await Task.sleep(nanoseconds: 20_000_000)
+        XCTAssertEqual(detector.callCount, 2)
+        XCTAssertEqual(presenter.presentedPointers, [moved])
+    }
+
+    @MainActor
+    func testShiftToggleRestoresMeasurementImmediatelyWithoutMouseMovement() async throws {
+        let display = makeDisplay(id: "display-a", x: 0)
+        let coordinator = MeasurementCoordinator()
+        let pointer = Point2D(x: 40, y: 50)
+        coordinator.startFreshSession(displays: [display], pointer: pointer)
+        let candidate = DetectionCandidate(
+            bounds: Rect2D(x: 10, y: 10, width: 100, height: 60),
+            source: .accessibility, confidence: 0.9, displayID: display.id)
+        let detector = StubElementDetector(responses: [(0, .detected(candidate))])
+        let presenter = StubMeasurementPresenter()
+        let controller = TemporaryMeasurementController(
+            coordinator: coordinator, detector: detector, displayManager: presenter,
+            displaySource: StubMeasurementDisplayProvider(display: display),
+            preferencesStore: PreferencesStore(defaults: UserDefaults(suiteName: UUID().uuidString)!),
+            minimumDetectionInterval: 0
+        )
+        controller.start()
+        defer { controller.stop() }
+        try await Task.sleep(nanoseconds: 20_000_000)
+        XCTAssertEqual(presenter.presentedResults, [.detected(candidate)])
+
+        for _ in 0..<2 {
+            let count = presenter.presentedResults.count
+            coordinator.updateShiftState(true)
+            XCTAssertEqual(presenter.crosshairPointers.last, pointer)
+            coordinator.updateShiftState(false)
+            // No await or mouse event: the cached measurement is presented synchronously.
+            XCTAssertEqual(presenter.presentedResults.count, count + 1)
+            XCTAssertEqual(presenter.presentedResults.last, .detected(candidate))
+            XCTAssertEqual(controller.lastDetectedCandidate, candidate)
+        }
+        XCTAssertEqual(detector.callCount, 1)
+    }
+
+    @MainActor
+    func testCrosshairPresentationNeedsNoDetectedElement() {
+        let view = TemporaryMeasurementOverlayView(
+            frame: NSRect(x: 0, y: 0, width: 1200, height: 800))
+        let pointer = Point2D(x: 80, y: 90)
+        view.updateCrosshair(pointer: pointer, preferences: .default)
+        XCTAssertEqual(view.content, .crosshair(pointer, .default))
+        XCTAssertNil(view.dimensionLabels)
+        view.clear()
+        XCTAssertNil(view.content)
+    }
+
     private func makeDisplay(id: String, x: Double) -> DisplayDescriptor {
         DisplayDescriptor(
             id: id,
@@ -172,6 +255,7 @@ final class DisplayManagerTests: XCTestCase {
 
 @MainActor
 private final class StubElementDetector: ElementDetecting {
+    private(set) var callCount = 0
     private var responses: [(TimeInterval, ElementDetectionResult)]
 
     init(responses: [(TimeInterval, ElementDetectionResult)]) {
@@ -184,6 +268,7 @@ private final class StubElementDetector: ElementDetecting {
         primaryDisplayBounds: Rect2D,
         now: Date
     ) async -> ElementDetectionResult {
+        callCount += 1
         guard !responses.isEmpty else { return .unavailable(.noConfidentBoundary) }
         let (delay, result) = responses.removeFirst()
         if delay > 0 {
@@ -198,6 +283,7 @@ private final class StubMeasurementPresenter: TemporaryMeasurementPresenting {
     private(set) var presentedResults: [ElementDetectionResult] = []
     private(set) var presentedPointers: [Point2D] = []
     private(set) var clearCount = 0
+    private(set) var crosshairPointers: [Point2D] = []
 
     func showTemporaryMeasurement(
         _ result: ElementDetectionResult,
@@ -206,6 +292,10 @@ private final class StubMeasurementPresenter: TemporaryMeasurementPresenting {
     ) {
         presentedResults.append(result)
         presentedPointers.append(globalPointer)
+    }
+
+    func showTemporaryCrosshair(at globalPointer: Point2D, preferences: AppPreferences) {
+        crosshairPointers.append(globalPointer)
     }
 
     func clearTemporaryMeasurements() {
@@ -230,6 +320,8 @@ private final class StubMeasurementDisplayProvider: MeasurementDisplayProviding 
     ) {}
 
     func clearTemporaryMeasurements() {}
+
+    func showTemporaryCrosshair(at globalPointer: Point2D, preferences: AppPreferences) {}
 }
 
 final class TemporaryLabelPlacementTests: XCTestCase {

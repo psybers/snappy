@@ -409,11 +409,12 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
         }
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
             let location = NSEvent.mouseLocation
+            let shiftHeld = event.modifierFlags.contains(.shift)
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 let point = Point2D(x: location.x, y: location.y)
                 pointerMoved(toGlobal: point)
-                coordinator.pointerMoved(to: point)
+                coordinator.pointerMoved(to: point, shiftHeld: shiftHeld)
             }
             return event
         }

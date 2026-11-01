@@ -3,7 +3,7 @@ import Foundation
 
 enum MeasurementModeState: Equatable {
     case inactive
-    case tracking(pointer: Point2D)
+    case tracking(pointer: Point2D, shiftHeld: Bool = false)
     case selecting(start: Point2D, current: Point2D)
 
     var isActive: Bool {
@@ -15,10 +15,21 @@ enum MeasurementModeState: Equatable {
         switch self {
         case .inactive:
             nil
-        case .tracking(let pointer):
+        case .tracking(let pointer, _):
             pointer
         case .selecting(_, let current):
             current
+        }
+    }
+
+    var shiftHeld: Bool {
+        switch self {
+        case .inactive:
+            false
+        case .tracking(_, let shiftHeld):
+            shiftHeld
+        case .selecting:
+            false
         }
     }
 }
@@ -40,14 +51,18 @@ final class MeasurementCoordinator: ObservableObject {
 
     let commands = PassthroughSubject<MeasurementCommand, Never>()
 
+    private var ignoresActivationShift = false
+
     func startFreshSession(
         displays: [DisplayDescriptor],
-        pointer: Point2D
+        pointer: Point2D,
+        shiftHeldAtActivation: Bool = false
     ) {
+        ignoresActivationShift = shiftHeldAtActivation
         let validDisplays = displays.filter(\.isValid)
         // Annotations already on screen (e.g. after Restore Last Session) stay in place.
         if let existing = activeSession, existing.annotationCount > 0 {
-            mode = .tracking(pointer: pointer)
+            mode = .tracking(pointer: pointer, shiftHeld: false)
             return
         }
         activeSession = MeasurementSession(
@@ -55,7 +70,7 @@ final class MeasurementCoordinator: ObservableObject {
                 DisplayAnnotations(display: $0, annotations: [])
             }
         )
-        mode = .tracking(pointer: pointer)
+        mode = .tracking(pointer: pointer, shiftHeld: false)
     }
 
     func stop() {
@@ -123,15 +138,33 @@ final class MeasurementCoordinator: ObservableObject {
         }
     }
 
-    func pointerMoved(to point: Point2D) {
+    func pointerMoved(to point: Point2D, shiftHeld: Bool? = nil) {
         guard point.isFinite else { return }
+        let shiftHeld = shiftHeld.map { effectiveShiftState($0) }
         switch mode {
         case .inactive:
             break
-        case .tracking:
-            mode = .tracking(pointer: point)
+        case .tracking(let currentPointer, let currentShift):
+            if currentPointer != point || (shiftHeld ?? currentShift) != currentShift {
+                mode = .tracking(pointer: point, shiftHeld: shiftHeld ?? currentShift)
+            }
         case .selecting(let start, _):
             mode = .selecting(start: start, current: point)
+        }
+    }
+
+    private func effectiveShiftState(_ shiftHeld: Bool) -> Bool {
+        // The Shift in the activation chord must be released before crosshair mode is armed.
+        if !shiftHeld { ignoresActivationShift = false }
+        return shiftHeld && !ignoresActivationShift
+    }
+
+    func updateShiftState(_ shiftHeld: Bool) {
+        guard mode.isActive else { return }
+        let shiftHeld = effectiveShiftState(shiftHeld)
+        // Only update shift state without triggering pointer movement
+        if case .tracking(let pointer, let currentShift) = mode, currentShift != shiftHeld {
+            mode = .tracking(pointer: pointer, shiftHeld: shiftHeld)
         }
     }
 

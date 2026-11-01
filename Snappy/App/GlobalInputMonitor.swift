@@ -15,8 +15,11 @@ final class GlobalInputMonitor: ObservableObject {
     private let permissionManager: AccessibilityPermissionManager
     private var mouseMonitor: Any?
     private var localMouseMonitor: Any?
+    private var localModifierMonitor: Any?
     private var gestureOnAnnotation = false
     private var keyboardMonitor: Any?
+    private var modeSubscription: AnyCancellable?
+    private var modifierTimer: Timer?
 
     init(
         coordinator: MeasurementCoordinator,
@@ -27,6 +30,14 @@ final class GlobalInputMonitor: ObservableObject {
     }
 
     func start() {
+        if modeSubscription == nil {
+            modeSubscription = coordinator.$mode
+                .map(\.isActive)
+                .removeDuplicates()
+                .sink { [weak self] active in
+                    self?.setModifierTracking(active: active)
+                }
+        }
         if mouseMonitor == nil {
             let mouseMask: NSEvent.EventTypeMask = [
                 .mouseMoved,
@@ -37,8 +48,10 @@ final class GlobalInputMonitor: ObservableObject {
             mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: mouseMask) { [weak self] event in
                 let location = NSEvent.mouseLocation
                 let point = Point2D(x: location.x, y: location.y)
+                let modifiers = Self.shortcutModifiers(from: event.modifierFlags)
+                let shiftHeld = modifiers.contains(.shift)
                 Task { @MainActor [weak self] in
-                    self?.handleMouseEvent(event.type, at: point)
+                    self?.handleMouseEvent(event.type, at: point, shiftHeld: shiftHeld)
                 }
             }
         }
@@ -49,7 +62,15 @@ final class GlobalInputMonitor: ObservableObject {
                 let location = NSEvent.mouseLocation
                 let point = Point2D(x: location.x, y: location.y)
                 MainActor.assumeIsolated {
-                    self?.handleLocalMouse(event.type, at: point)
+                    self?.handleLocalMouse(event.type, at: point, shiftHeld: event.modifierFlags.contains(.shift))
+                }
+                return event
+            }
+        }
+        if localModifierMonitor == nil {
+            localModifierMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+                MainActor.assumeIsolated {
+                    self?.coordinator.updateShiftState(event.modifierFlags.contains(.shift))
                 }
                 return event
             }
@@ -57,17 +78,39 @@ final class GlobalInputMonitor: ObservableObject {
         refreshKeyboardPermission()
     }
 
-    private func handleLocalMouse(_ type: NSEvent.EventType, at point: Point2D) {
+    private func handleLocalMouse(_ type: NSEvent.EventType, at point: Point2D, shiftHeld: Bool) {
         if type == .leftMouseDown {
             gestureOnAnnotation = DisplayManager.shared.isHoveringAnnotation
         }
         let suppressed = gestureOnAnnotation
         if type == .leftMouseUp { gestureOnAnnotation = false }
         guard !suppressed else { return }
-        handleMouseEvent(type, at: point)
+        handleMouseEvent(type, at: point, shiftHeld: shiftHeld)
+    }
+
+    private func setModifierTracking(active: Bool) {
+        modifierTimer?.invalidate()
+        modifierTimer = nil
+        guard active else { return }
+        // Reading aggregate modifier state needs no global keyboard monitoring permission.
+        // Keep this fallback scoped to measurement mode; never capture key events here.
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.coordinator.updateShiftState(NSEvent.modifierFlags.contains(.shift))
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        modifierTimer = timer
     }
 
     func stop() {
+        modeSubscription?.cancel()
+        modeSubscription = nil
+        setModifierTracking(active: false)
+        if let localModifierMonitor {
+            NSEvent.removeMonitor(localModifierMonitor)
+            self.localModifierMonitor = nil
+        }
         if let localMouseMonitor {
             NSEvent.removeMonitor(localMouseMonitor)
             self.localMouseMonitor = nil
@@ -90,15 +133,22 @@ final class GlobalInputMonitor: ObservableObject {
             return
         }
 
-        keyboardMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            let key = event.charactersIgnoringModifiers ?? ""
+        keyboardMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] event in
             let modifiers = Self.shortcutModifiers(from: event.modifierFlags)
             Task { @MainActor [weak self] in
-                self?.coordinator.keyDown(
-                    key: key,
-                    keyCode: event.keyCode,
-                    modifiers: modifiers
-                )
+                // Track Shift key state for crosshair mode
+                if event.type == .flagsChanged {
+                    let shiftHeld = modifiers.contains(.shift)
+                    // Update coordinator state so it's in sync
+                    self?.coordinator.updateShiftState(shiftHeld)
+                } else if event.type == .keyDown {
+                    let key = event.charactersIgnoringModifiers ?? ""
+                    self?.coordinator.keyDown(
+                        key: key,
+                        keyCode: event.keyCode,
+                        modifiers: modifiers
+                    )
+                }
             }
         }
         keyboardMonitoringAvailable = keyboardMonitor != nil
@@ -112,10 +162,10 @@ final class GlobalInputMonitor: ObservableObject {
         keyboardMonitoringAvailable = false
     }
 
-    private func handleMouseEvent(_ type: NSEvent.EventType, at point: Point2D) {
+    private func handleMouseEvent(_ type: NSEvent.EventType, at point: Point2D, shiftHeld: Bool) {
         switch type {
         case .mouseMoved, .leftMouseDragged:
-            coordinator.pointerMoved(to: point)
+            coordinator.pointerMoved(to: point, shiftHeld: shiftHeld)
         case .leftMouseDown:
             coordinator.leftMouseDown(at: point)
         case .leftMouseUp:

@@ -32,6 +32,7 @@ protocol TemporaryMeasurementPresenting: AnyObject {
         at globalPointer: Point2D,
         preferences: AppPreferences
     )
+    func showTemporaryCrosshair(at globalPointer: Point2D, preferences: AppPreferences)
     func clearTemporaryMeasurements()
 }
 
@@ -426,9 +427,26 @@ extension DisplayManager {
             )
         }
     }
+
+    func showTemporaryCrosshair(at globalPointer: Point2D, preferences: AppPreferences) {
+        for (displayID, panel) in overlayWindows {
+            guard let display = connectedDisplays.first(where: { $0.id == displayID }),
+                display.logicalBounds.contains(globalPointer)
+            else {
+                panel.clearTemporaryMeasurement()
+                continue
+            }
+            panel.annotationView?.updateCrosshair(
+                pointer: DisplayCoordinateMapper.globalToDisplayLocal(
+                    globalPointer, displayBounds: display.logicalBounds),
+                preferences: preferences
+            )
+        }
+    }
 }
 
 enum TemporaryMeasurementOverlayContent: Equatable {
+    case crosshair(Point2D, AppPreferences)
     case measurement(DetectionCandidate, Point2D, AppPreferences)
     case unavailable(Point2D, DetectionFailure, AppPreferences)
 }
@@ -734,6 +752,12 @@ final class TemporaryMeasurementOverlayView: NSView {
         needsDisplay = true
     }
 
+    func updateCrosshair(pointer: Point2D, preferences: AppPreferences) {
+        resetAnimation()
+        content = .crosshair(pointer, preferences)
+        needsDisplay = true
+    }
+
     private struct AnimatedGeometry {
         var rect: NSRect
         var pointer: NSPoint
@@ -798,6 +822,8 @@ final class TemporaryMeasurementOverlayView: NSView {
         drawSelection()
         // While the pointer is over a pinned annotation, only that item is interactive.
         switch hover == nil ? content : nil {
+        case .crosshair(let pointer, let preferences):
+            drawCrosshair(pointer: pointer, preferences: preferences)
         case .measurement(let candidate, let pointer, let preferences):
             drawMeasurement(candidate, pointer: pointer, preferences: preferences)
         case .unavailable(let pointer, let failure, let preferences):
@@ -846,12 +872,22 @@ final class TemporaryMeasurementOverlayView: NSView {
             horizontal: false,
             color: color
         )
-
         drawLabel(
             TemporaryDimensionLabels(candidate: candidate).text,
             nearPointer: center,
             preferences: preferences
         )
+    }
+
+    private func drawCrosshair(pointer: Point2D, preferences: AppPreferences) {
+        Self.color(from: preferences.measurementColor).setStroke()
+        let lines = NSBezierPath()
+        lines.lineWidth = 1
+        lines.move(to: NSPoint(x: bounds.minX, y: pointer.y))
+        lines.line(to: NSPoint(x: bounds.maxX, y: pointer.y))
+        lines.move(to: NSPoint(x: pointer.x, y: bounds.minY))
+        lines.line(to: NSPoint(x: pointer.x, y: bounds.maxY))
+        lines.stroke()
     }
 
     private func drawDimensionLine(
@@ -944,6 +980,7 @@ final class TemporaryMeasurementController {
     private var detectionTaskID: UUID?
     private var pointerGeneration = 0
     private var isMeasuringActive = false
+    private var isShowingCrosshair = false
     private var latestPointer: Point2D?
     private var lastResult: ElementDetectionResult?
     private(set) var lastDetectedCandidate: DetectionCandidate?
@@ -986,6 +1023,7 @@ final class TemporaryMeasurementController {
         detectionTask = nil
         detectionTaskID = nil
         cancellables.removeAll()
+        isShowingCrosshair = false
         lastResult = nil
         lastPointer = nil
         latestPointer = nil
@@ -1001,7 +1039,8 @@ final class TemporaryMeasurementController {
         } else if !mode.isActive, wasActive {
             (displayManager as? DisplayManager)?.unfreezeScreens()
         }
-        guard case .tracking(let pointer) = mode else {
+        guard case .tracking(let pointer, let shiftHeld) = mode else {
+            isShowingCrosshair = false
             detectionTask?.cancel()
             detectionTask = nil
             detectionTaskID = nil
@@ -1012,6 +1051,31 @@ final class TemporaryMeasurementController {
             pointerGeneration += 1
             displayManager.clearTemporaryMeasurements()
             return
+        }
+        if shiftHeld {
+            detectionTask?.cancel()
+            detectionTask = nil
+            detectionTaskID = nil
+            pointerGeneration += 1
+            latestPointer = pointer
+            isShowingCrosshair = true
+            lastDetectedCandidate = nil
+            displayManager.showTemporaryCrosshair(
+                at: pointer, preferences: preferencesStore.preferences)
+            return
+        }
+
+        if isShowingCrosshair {
+            isShowingCrosshair = false
+            if lastPointer == pointer, let lastResult {
+                if case .detected(let candidate) = lastResult {
+                    lastDetectedCandidate = candidate
+                }
+                displayManager.showTemporaryMeasurement(
+                    lastResult, at: pointer, preferences: preferencesStore.preferences)
+                return
+            }
+            displayManager.clearTemporaryMeasurements()
         }
         if latestPointer != pointer {
             latestPointer = pointer
@@ -1106,6 +1170,10 @@ final class TemporaryMeasurementController {
     }
 
     private func refreshPresentation(preferences: AppPreferences) {
+        if case .tracking(let pointer, true) = coordinator.mode {
+            displayManager.showTemporaryCrosshair(at: pointer, preferences: preferences)
+            return
+        }
         guard let lastResult, let lastPointer else { return }
         displayManager.showTemporaryMeasurement(
             lastResult,

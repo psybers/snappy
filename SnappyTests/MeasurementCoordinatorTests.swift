@@ -109,6 +109,46 @@ final class MeasurementCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.activeSession, session)
     }
 
+    func testActivationShiftIsIgnoredUntilReleasedThenNextPressEnablesCrosshair() {
+        let coordinator = MeasurementCoordinator()
+        let pointer = Point2D(x: 20, y: 30)
+        coordinator.startFreshSession(
+            displays: [], pointer: pointer, shiftHeldAtActivation: true)
+        coordinator.updateShiftState(true)
+        XCTAssertEqual(coordinator.mode, .tracking(pointer: pointer))
+
+        let moved = Point2D(x: 40, y: 50)
+        coordinator.pointerMoved(to: moved, shiftHeld: true)
+        XCTAssertEqual(coordinator.mode, .tracking(pointer: moved))
+
+        coordinator.updateShiftState(false)
+        coordinator.updateShiftState(true)
+        XCTAssertEqual(coordinator.mode, .tracking(pointer: moved, shiftHeld: true))
+        coordinator.updateShiftState(false)
+        XCTAssertEqual(coordinator.mode, .tracking(pointer: moved))
+    }
+
+    func testActivationShiftCanBeReleasedByMouseEventAndResetsOnRestart() {
+        let coordinator = MeasurementCoordinator()
+        let pointer = Point2D(x: 20, y: 30)
+        coordinator.startFreshSession(
+            displays: [], pointer: pointer, shiftHeldAtActivation: true)
+        coordinator.pointerMoved(to: pointer, shiftHeld: false)
+        coordinator.pointerMoved(to: pointer, shiftHeld: true)
+        XCTAssertTrue(coordinator.mode.shiftHeld)
+
+        coordinator.stop()
+        coordinator.startFreshSession(
+            displays: [], pointer: pointer, shiftHeldAtActivation: true)
+        coordinator.updateShiftState(true)
+        XCTAssertFalse(coordinator.mode.shiftHeld)
+
+        coordinator.stop()
+        coordinator.startFreshSession(displays: [], pointer: pointer)
+        coordinator.updateShiftState(true)
+        XCTAssertTrue(coordinator.mode.shiftHeld)
+    }
+
     private func makeDisplay(id: String) -> DisplayDescriptor {
         DisplayDescriptor(
             id: id,

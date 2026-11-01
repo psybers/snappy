@@ -146,7 +146,8 @@ final class GlobalShortcutService: ObservableObject {
         inputMonitor.start()
         coordinator.startFreshSession(
             displays: displayManager.connectedDisplays,
-            pointer: currentPointer()
+            pointer: currentPointer(),
+            shiftHeldAtActivation: NSEvent.modifierFlags.contains(.shift)
         )
         displayManager.replaceAnnotationGroups(coordinator.activeSession?.displays ?? [])
     }
