@@ -288,10 +288,16 @@ extension DisplayManager {
             throw ScreenCaptureError.displayUnavailable
         }
 
+        // Exclude only the annotation/frozen-screen overlays. Other Snappy
+        // windows, including Preferences, should remain part of the capture.
+        let overlayWindowIDs = Set(NSApp.windows.compactMap { window -> CGWindowID? in
+            guard window is ScreenOverlayPanel, window.windowNumber > 0 else { return nil }
+            return CGWindowID(window.windowNumber)
+        })
         let filter = SCContentFilter(
             display: display,
             excludingWindows: content.windows.filter {
-                $0.owningApplication?.processID == ProcessInfo.processInfo.processIdentifier
+                overlayWindowIDs.contains($0.windowID)
             }
         )
 
