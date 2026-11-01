@@ -159,6 +159,8 @@ Do not simply snap each edge independently to the nearest visual edge.
 
 # 6. Exiting Measurement Mode
 
+Pressing the configured global shortcut while measurement mode is active also exits measurement mode and keeps persistent annotations visible.
+
 Pressing Escape exits measurement mode.
 
 When measurement mode exits:

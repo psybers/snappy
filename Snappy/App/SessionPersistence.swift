@@ -241,9 +241,11 @@ final class SessionPersistenceController: ObservableObject {
             .removeDuplicates()
             .sink { [weak self] active in
                 guard !active, let self else { return }
-                // Save first so the snapshot keeps this work, then clear the screen.
+                // Save before applying the requested exit behavior.
                 flush()
-                coordinator.clearAnnotations()
+                if !coordinator.keepsAnnotationsOnExit {
+                    coordinator.clearAnnotations()
+                }
             }
             .store(in: &cancellables)
         displayChanges

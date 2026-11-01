@@ -38,7 +38,7 @@ Preferences explains both permissions, can request them, and opens the matching 
 
 | Input | Action |
 |---|---|
-| Cmd+Shift+F (configurable) | Start measurement mode |
+| Cmd+Shift+F (configurable) | Start measurement mode; press again to exit and keep annotations visible |
 | Arrow keys / Shift+Arrow keys | Move the cursor 1 / 10 physical display pixels and update the measurement or Shift crosshair |
 | Move the mouse | Horizontal and vertical measurement lines with T caps and W/H labels |
 | `H` / `V` | Pin the current horizontal / vertical measurement |
@@ -56,6 +56,7 @@ Menu: Preferences..., Restore Last Session, Clear Annotations (no confirmation),
 - Sessions live in `~/Library/Application Support/Snappy/`: `active-session.json` (saved shortly after every change, on Escape, and on quit) and `last-session.json` (last non-empty snapshot). Writes are atomic; corrupt files are moved to `*.corrupt.json`; newer schema versions are rejected without deleting them.
 - The hotkey starts an empty session only if the active one has no annotations; existing (e.g. restored) annotations are kept so you can keep measuring.
 - Escape saves the snapshot and then clears annotations. **Clear Annotations** clears the active session but never the snapshot.
+- Pressing the global shortcut while measuring saves and exits measurement mode while keeping annotations visible.
 - **Restore Last Session** loads the snapshot and remaps annotations to connected displays (by ID, then pixel size and scale; geometry is scaled if resolution changed). Annotations for disconnected displays are retained and reappear on reconnect.
 
 ## Architecture

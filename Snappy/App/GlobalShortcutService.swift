@@ -163,6 +163,10 @@ final class GlobalShortcutService: ObservableObject {
             return
         }
         if let identifier, identifier != activeHotKeyID { return }
+        if coordinator.mode.isActive {
+            coordinator.stop(keepingAnnotations: true)
+            return
+        }
         // Without permission, do nothing but let the system dialog be answered.
         Task { @MainActor [weak self] in
             guard let self, await screenAccessGate() else { return }

@@ -5,6 +5,46 @@ import XCTest
 
 @MainActor
 final class AcceptanceLifecycleTests: XCTestCase {
+    func testGlobalShortcutExitsAndSavesWithoutClearingAnnotations() {
+        let screen = display("a", x: 0)
+        let coordinator = MeasurementCoordinator()
+        let persistence = SessionPersistenceController(
+            store: SessionStore(directory: dir), coordinator: coordinator, displays: { [screen] })
+        persistence.start(displayChanges: Just([screen]).eraseToAnyPublisher())
+        let shortcuts = GlobalShortcutService(
+            coordinator: coordinator, inputMonitor: .shared,
+            displayManager: .shared, preferencesStore: .shared)
+        var permissionChecks = 0
+        shortcuts.screenAccessGate = {
+            permissionChecks += 1
+            return false
+        }
+        coordinator.startFreshSession(displays: [screen], pointer: Point2D(x: 50, y: 50))
+        let geometries: [AnnotationGeometry] = [
+            .horizontalMeasurement(start: Point2D(x: 10, y: 20), length: 100),
+            .verticalMeasurement(start: Point2D(x: 10, y: 20), length: 50),
+            .rectangle(Rect2D(x: 30, y: 40, width: 60, height: 70)),
+            .guideline(axis: .vertical, position: 300)
+        ]
+        for geometry in geometries {
+            coordinator.addAnnotation(MeasurementAnnotation(displayID: screen.id, geometry: geometry))
+        }
+        let session = coordinator.activeSession
+        coordinator.leftMouseDown(at: Point2D(x: 50, y: 50))
+        shortcuts.handleHotKey()
+        XCTAssertEqual(coordinator.mode, .inactive)
+        XCTAssertEqual(coordinator.activeSession, session)
+        XCTAssertTrue(persistence.hasRestorableSession)
+        XCTAssertEqual(permissionChecks, 0)
+
+        // The existing Escape path still clears the screen after saving.
+        coordinator.startFreshSession(displays: [screen], pointer: Point2D(x: 50, y: 50))
+        coordinator.keyDown(key: "", keyCode: 53, modifiers: [])
+        XCTAssertEqual(coordinator.activeSession?.annotationCount, 0)
+        XCTAssertTrue(persistence.restoreLastSession())
+        XCTAssertEqual(coordinator.activeSession?.annotationCount, 4)
+    }
+
     private var dir: URL!
 
     override func setUp() {

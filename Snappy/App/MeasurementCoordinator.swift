@@ -48,6 +48,7 @@ final class MeasurementCoordinator: ObservableObject {
 
     @Published private(set) var mode: MeasurementModeState = .inactive
     @Published private(set) var activeSession: MeasurementSession?
+    private(set) var keepsAnnotationsOnExit = false
 
     let commands = PassthroughSubject<MeasurementCommand, Never>()
 
@@ -79,8 +80,9 @@ final class MeasurementCoordinator: ObservableObject {
         mode = .tracking(pointer: pointer, shiftHeld: false)
     }
 
-    func stop() {
+    func stop(keepingAnnotations: Bool = false) {
         guard mode.isActive else { return }
+        keepsAnnotationsOnExit = keepingAnnotations
         mode = .inactive
     }
 
