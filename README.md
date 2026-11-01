@@ -60,6 +60,7 @@ Detection is event-driven (no polling timers); pointer updates are coalesced, on
 
 ## Known limitations
 
+- Live cursor measurements scan a cached full-monitor image so large areas are not clipped to a cursor crop. Thin and softened borders are confirmed along the edge, with an 8-level per-channel contrast threshold across transitions up to two points wide; subtle gradients and textured content can still produce imperfect measurements.
 - Vision and pixel-extent results are heuristics, not semantic UI element boundaries; ambiguous areas report "unavailable" rather than guessed bounds.
 - While measuring, Snappy's overlays capture all mouse events (nothing reaches the app underneath) and show a crosshair cursor; guidelines show resize cursors. Cursor changes from a background app use a private CoreGraphics connection property; if a cursor does not change on your macOS version, that is the cause.
 - A selection is analysed on a single display; the visual fallback only looks inside the dragged area.

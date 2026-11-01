@@ -401,6 +401,14 @@ final class ElementDetectionService: ElementDetecting {
     }
 
     private func captureRegion(around globalPointer: Point2D, on display: DisplayDescriptor) -> Rect2D {
+        // Extent measurements must reach real boundaries, never the edge of
+        // a cursor-centred crop. The full display is captured by the backend
+        // already; retain it for the cached pixel scans.
+        if extentDetector != nil {
+            return Rect2D(x: 0, y: 0,
+                          width: display.logicalBounds.size.width,
+                          height: display.logicalBounds.size.height)
+        }
         let pointer = DisplayCoordinateMapper.globalToDisplayLocal(
             globalPointer,
             displayBounds: display.logicalBounds
@@ -418,11 +426,9 @@ final class ElementDetectionService: ElementDetecting {
 /// visually uniform area under the pointer, returned as the rectangle spanned
 /// by those two extents. Works on any content, not only recognised elements.
 struct PixelExtentDetector {
-    /// Largest per-channel difference between neighbouring pixels (0...255)
+    /// Largest per-channel difference across a short edge transition (0...255)
     /// that is still considered the same visual area.
-    var edgeThreshold = 24
-    /// Consecutive pixels (at 1x) a change must persist to count as an edge.
-    var minimumRunPoints = 3
+    var edgeThreshold = 8
 
     func detect(
         in capturedRegion: CapturedDisplayRegion,
@@ -449,7 +455,6 @@ struct PixelExtentDetector {
         let scaleY = Double(height) / region.size.height
         let startX = min(max(Int((pointer.x - region.minX) * scaleX), 0), width - 1)
         let startRow = min(max(Int((region.maxY - pointer.y) * scaleY), 0), height - 1)
-        let run = max(1, Int((Double(minimumRunPoints) * scaleX).rounded()))
 
         func offset(_ x: Int, _ row: Int) -> Int { (row * width + x) * 4 }
 
@@ -465,27 +470,41 @@ struct PixelExtentDetector {
             var travelled = 0
             var x = startX
             var row = startRow
-            var previous = offset(x, row)
+            let transitionSpan = max(2, Int(((dx == 0 ? scaleY : scaleX) * 2).rounded()))
             while travelled < limit {
                 x += dx
                 row += dy
                 let current = offset(x, row)
-                if differs(previous, current) {
-                    var confirmed = true
-                    var probeX = x
-                    var probeRow = row
-                    for _ in 1..<run {
-                        probeX += dx
-                        probeRow += dy
-                        guard probeX >= 0, probeX < width, probeRow >= 0, probeRow < height else { break }
-                        if !differs(previous, offset(probeX, probeRow)) {
-                            confirmed = false
-                            break
+                // Antialiasing can spread a clear edge over several pixels,
+                // with every individual step below the contrast threshold.
+                for distance in 1...min(transitionSpan, travelled + 1) {
+                    let previousX = x - dx * distance
+                    let previousRow = row - dy * distance
+                    guard differs(offset(previousX, previousRow), current) else { continue }
+                    // Confirm along the edge, rather than through it: a
+                    // one-pixel border is a valid boundary. Neighbouring
+                    // scanlines reject isolated pixel noise.
+                    let spacing = max(1, Int((dx == 0 ? scaleX : scaleY).rounded()))
+                    var support = 1
+                    for side in [-1, 1] {
+                        let shiftX = dy == 0 ? 0 : side * spacing
+                        let shiftY = dx == 0 ? 0 : side * spacing
+                        let priorX = previousX + shiftX
+                        let priorRow = previousRow + shiftY
+                        let nextX = x + shiftX
+                        let nextRow = row + shiftY
+                        guard priorX >= 0, priorX < width, priorRow >= 0, priorRow < height,
+                              nextX >= 0, nextX < width, nextRow >= 0, nextRow < height
+                        else { continue }
+                        if differs(offset(priorX, priorRow), offset(nextX, nextRow)) {
+                            support += 1
                         }
                     }
-                    if confirmed { break }
+                    if support >= 2 {
+                        // Stop at the beginning of the softened transition.
+                        return max(0, travelled - distance + 1)
+                    }
                 }
-                previous = current
                 travelled += 1
             }
             return travelled
@@ -496,10 +515,12 @@ struct PixelExtentDetector {
         let up = scan(dx: 0, dy: -1, limit: startRow)
         let down = scan(dx: 0, dy: 1, limit: height - 1 - startRow)
 
-        let minX = pointer.x - Double(left) / scaleX
-        let maxX = pointer.x + Double(right + 1) / scaleX
-        let minY = pointer.y - Double(down + 1) / scaleY
-        let maxY = pointer.y + Double(up) / scaleY
+        // Use pixel boundaries, not the fractional position inside the
+        // pointer's pixel, to keep endpoints stable while the mouse moves.
+        let minX = region.minX + Double(startX - left) / scaleX
+        let maxX = region.minX + Double(startX + right + 1) / scaleX
+        let minY = region.maxY - Double(startRow + down + 1) / scaleY
+        let maxY = region.maxY - Double(startRow - up) / scaleY
         let bounds = Rect2D(
             x: max(minX, region.minX),
             y: max(minY, region.minY),
