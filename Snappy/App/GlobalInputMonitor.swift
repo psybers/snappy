@@ -21,6 +21,23 @@ final class GlobalInputMonitor: ObservableObject {
     private var modeSubscription: AnyCancellable?
     private var modifierTimer: Timer?
 
+    /// AppKit uses bottom-left points; cursor warping uses top-left global points.
+    static func moveCursor(from pointer: Point2D, dxPixels: Double, dyPixels: Double) -> Point2D? {
+        guard let screen = NSScreen.screens.first(where: {
+            $0.frame.contains(NSPoint(x: pointer.x, y: pointer.y))
+        }), let primary = NSScreen.screens.first else { return nil }
+        let scale = screen.backingScaleFactor
+        var target = NSPoint(x: pointer.x + dxPixels / scale, y: pointer.y + dyPixels / scale)
+        // Permit crossing onto adjacent displays, but keep the pointer out of desktop gaps.
+        if !NSScreen.screens.contains(where: { $0.frame.contains(target) }) {
+            target.x = min(max(target.x, screen.frame.minX), screen.frame.maxX - 1 / scale)
+            target.y = min(max(target.y, screen.frame.minY), screen.frame.maxY - 1 / scale)
+        }
+        guard CGWarpMouseCursorPosition(CGPoint(x: target.x, y: primary.frame.maxY - target.y)) == .success
+        else { return nil }
+        return Point2D(x: target.x, y: target.y)
+    }
+
     init(
         coordinator: MeasurementCoordinator,
         permissionManager: AccessibilityPermissionManager

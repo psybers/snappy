@@ -22,8 +22,13 @@ private let snappyHotKeyEventHandler: EventHandlerUPP = { _, event, userData in
         return OSStatus(eventNotHandledErr)
     }
     let service = Unmanaged<GlobalShortcutService>.fromOpaque(userData).takeUnretainedValue()
+    let released = GetEventKind(event) == UInt32(kEventHotKeyReleased)
     Task { @MainActor in
-        service.handleHotKey(identifier: hotKeyID.id)
+        if released {
+            service.handleHotKeyRelease(identifier: hotKeyID.id)
+        } else {
+            service.handleHotKey(identifier: hotKeyID.id)
+        }
     }
     return noErr
 }
@@ -48,12 +53,22 @@ final class GlobalShortcutService: ObservableObject {
     private var isStarted = false
     private var escapeHotKey: EventHotKeyRef?
     private var annotationHotKeys: [UInt32: EventHotKeyRef] = [:]
+    private var arrowRepeatTimer: Timer?
+    private var repeatingArrowID: UInt32?
     // Carbon hotkeys need no Accessibility/Input Monitoring permission, unlike global key monitors.
     private static let annotationKeys: [UInt32: (key: String, code: Int, shift: Bool)] = [
         0xA01: ("h", kVK_ANSI_H, false),
         0xA02: ("v", kVK_ANSI_V, false),
         0xA03: ("h", kVK_ANSI_H, true),
         0xA04: ("v", kVK_ANSI_V, true),
+        0xA05: ("", kVK_LeftArrow, false),
+        0xA06: ("", kVK_RightArrow, false),
+        0xA07: ("", kVK_DownArrow, false),
+        0xA08: ("", kVK_UpArrow, false),
+        0xA09: ("", kVK_LeftArrow, true),
+        0xA0A: ("", kVK_RightArrow, true),
+        0xA0B: ("", kVK_DownArrow, true),
+        0xA0C: ("", kVK_UpArrow, true),
     ]
     private var modeSubscription: AnyCancellable?
     private static let escapeHotKeyID: UInt32 = 0xE5C
@@ -127,6 +142,19 @@ final class GlobalShortcutService: ObservableObject {
             return
         }
         if let identifier, let entry = Self.annotationKeys[identifier] {
+            if (123...126).contains(entry.code) {
+                guard coordinator.mode.isActive, repeatingArrowID != identifier else { return }
+                stopArrowRepeat()
+                repeatingArrowID = identifier
+                let timer = Timer(fire: Date().addingTimeInterval(NSEvent.keyRepeatDelay),
+                                  interval: NSEvent.keyRepeatInterval, repeats: true) { [weak self] _ in
+                    MainActor.assumeIsolated {
+                        self?.repeatArrow()
+                    }
+                }
+                arrowRepeatTimer = timer
+                RunLoop.main.add(timer, forMode: .common)
+            }
             coordinator.keyDown(
                 key: entry.key,
                 keyCode: UInt16(entry.code),
@@ -140,6 +168,27 @@ final class GlobalShortcutService: ObservableObject {
             guard let self, await screenAccessGate() else { return }
             beginMeasuring()
         }
+    }
+
+    func handleHotKeyRelease(identifier: UInt32) {
+        if repeatingArrowID == identifier { stopArrowRepeat() }
+    }
+
+    private func stopArrowRepeat() {
+        arrowRepeatTimer?.invalidate()
+        arrowRepeatTimer = nil
+        repeatingArrowID = nil
+    }
+
+    func repeatArrow() {
+        guard coordinator.mode.isActive,
+              let identifier = repeatingArrowID,
+              let entry = Self.annotationKeys[identifier] else {
+            stopArrowRepeat()
+            return
+        }
+        coordinator.keyDown(key: entry.key, keyCode: UInt16(entry.code),
+                            modifiers: NSEvent.modifierFlags.contains(.shift) ? [.shift] : [])
     }
 
     private func beginMeasuring() {
@@ -170,15 +219,16 @@ final class GlobalShortcutService: ObservableObject {
 
     private func installCarbonHandler() {
         guard eventHandler == nil else { return }
-        var eventType = EventTypeSpec(
+        var eventTypes = [EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard),
             eventKind: UInt32(kEventHotKeyPressed)
-        )
+        ), EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
+                         eventKind: UInt32(kEventHotKeyReleased))]
         let status = InstallEventHandler(
             GetApplicationEventTarget(),
             snappyHotKeyEventHandler,
-            1,
-            &eventType,
+            eventTypes.count,
+            &eventTypes,
             Unmanaged.passUnretained(self).toOpaque(),
             &eventHandler
         )
@@ -253,6 +303,7 @@ final class GlobalShortcutService: ObservableObject {
     }
 
     private func setAnnotationHotKeys(enabled: Bool) {
+        if !enabled { stopArrowRepeat() }
         if enabled {
             guard eventHandler != nil else { return }
             for (id, entry) in Self.annotationKeys where annotationHotKeys[id] == nil {

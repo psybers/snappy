@@ -39,6 +39,7 @@ Preferences explains both permissions, can request them, and opens the matching 
 | Input | Action |
 |---|---|
 | Cmd+Shift+F (configurable) | Start measurement mode |
+| Arrow keys / Shift+Arrow keys | Move the cursor 1 / 10 physical display pixels and update the measurement or Shift crosshair |
 | Move the mouse | Horizontal and vertical measurement lines with T caps and W/H labels |
 | `H` / `V` | Pin the current horizontal / vertical measurement |
 | `Shift+H` / `Shift+V` | Add a horizontal / vertical guideline at the pointer (spans that display) |

@@ -3,6 +3,70 @@ import XCTest
 
 @MainActor
 final class MeasurementCoordinatorTests: XCTestCase {
+    func testHeldArrowRepeatsUntilReleasedOrMeasurementStops() {
+        var moveCount = 0
+        let coordinator = MeasurementCoordinator { point, dx, dy in
+            moveCount += 1
+            return Point2D(x: point.x + dx, y: point.y + dy)
+        }
+        let service = GlobalShortcutService(
+            coordinator: coordinator, inputMonitor: .shared,
+            displayManager: .shared, preferencesStore: .shared)
+        coordinator.startFreshSession(displays: [], pointer: Point2D(x: 50, y: 50))
+        service.handleHotKey(identifier: 0xA06) // Right arrow.
+        XCTAssertEqual(moveCount, 1)
+        service.repeatArrow()
+        service.repeatArrow()
+        XCTAssertEqual(moveCount, 3)
+        service.handleHotKeyRelease(identifier: 0xA05) // A different key must not stop it.
+        service.repeatArrow()
+        XCTAssertEqual(moveCount, 4)
+        service.handleHotKeyRelease(identifier: 0xA06)
+        service.repeatArrow()
+        XCTAssertEqual(moveCount, 4)
+
+        let beforeShift = coordinator.mode.pointer!.x
+        service.handleHotKey(identifier: 0xA0A) // Shift+Right arrow.
+        XCTAssertEqual(coordinator.mode.pointer?.x, beforeShift + 10)
+        coordinator.stop()
+        service.repeatArrow()
+        XCTAssertEqual(moveCount, 5)
+        coordinator.startFreshSession(displays: [], pointer: Point2D(x: 50, y: 50))
+        service.repeatArrow()
+        XCTAssertEqual(moveCount, 5)
+    }
+
+    func testArrowKeysMoveCursorAndPublishUpdatedTrackingInBothModes() {
+        var moves: [Point2D] = []
+        let coordinator = MeasurementCoordinator { point, dx, dy in
+            moves.append(Point2D(x: dx, y: dy))
+            // Simulate a Retina display: two physical pixels per point.
+            return Point2D(x: point.x + dx / 2, y: point.y + dy / 2)
+        }
+        coordinator.startFreshSession(displays: [], pointer: Point2D(x: 50, y: 50))
+        for (code, delta) in [(UInt16(123), Point2D(x: -1, y: 0)),
+                              (124, Point2D(x: 1, y: 0)),
+                              (125, Point2D(x: 0, y: -1)),
+                              (126, Point2D(x: 0, y: 1))] {
+            for shift in [false, true] {
+                let previous = coordinator.mode.pointer!
+                let multiplier = shift ? 10.0 : 1.0
+                coordinator.keyDown(key: "", keyCode: code, modifiers: shift ? [.shift] : [])
+                XCTAssertEqual(moves.last, Point2D(x: delta.x * multiplier, y: delta.y * multiplier))
+                XCTAssertEqual(coordinator.mode, .tracking(pointer: Point2D(
+                    x: previous.x + delta.x * multiplier / 2,
+                    y: previous.y + delta.y * multiplier / 2), shiftHeld: shift))
+            }
+        }
+        XCTAssertEqual(moves.count, 8)
+        coordinator.keyDown(key: "", keyCode: 123, modifiers: [.command])
+        coordinator.leftMouseDown(at: Point2D(x: 50, y: 50))
+        coordinator.keyDown(key: "", keyCode: 123, modifiers: [])
+        coordinator.stop()
+        coordinator.keyDown(key: "", keyCode: 123, modifiers: [])
+        XCTAssertEqual(moves.count, 8)
+    }
+
     func testStartingHotkeySessionAlwaysCreatesFreshEmptySession() {
         let coordinator = MeasurementCoordinator()
         let display = makeDisplay(id: "display-a")

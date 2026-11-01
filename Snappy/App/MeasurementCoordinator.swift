@@ -53,6 +53,12 @@ final class MeasurementCoordinator: ObservableObject {
 
     private var ignoresActivationShift = false
 
+    private let moveCursor: @MainActor (Point2D, Double, Double) -> Point2D?
+
+    init(moveCursor: @escaping @MainActor (Point2D, Double, Double) -> Point2D? = GlobalInputMonitor.moveCursor) {
+        self.moveCursor = moveCursor
+    }
+
     func startFreshSession(
         displays: [DisplayDescriptor],
         pointer: Point2D,
@@ -195,6 +201,16 @@ final class MeasurementCoordinator: ObservableObject {
         guard mode.isActive else { return }
         if keyCode == 53 {
             stop()
+            return
+        }
+        if (123...126).contains(keyCode), modifiers.isEmpty || modifiers == [.shift] {
+            guard case .tracking(let pointer, _) = mode else { return }
+            let step = modifiers.contains(.shift) ? 10.0 : 1.0
+            let dx = keyCode == 123 ? -step : keyCode == 124 ? step : 0
+            let dy = keyCode == 125 ? -step : keyCode == 126 ? step : 0
+            if let moved = moveCursor(pointer, dx, dy) {
+                pointerMoved(to: moved, shiftHeld: modifiers.contains(.shift))
+            }
             return
         }
         guard let pointer = mode.pointer else { return }
