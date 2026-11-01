@@ -521,7 +521,7 @@ final class TemporaryMeasurementOverlayView: NSView {
         case .guideline(let axis, _):
             return axis == .horizontal ? .resizeUpDown : .resizeLeftRight
         case .rectangle:
-            return .pointingHand
+            return .openHand
         case .horizontalMeasurement, .verticalMeasurement:
             return .openHand
         }
@@ -684,6 +684,8 @@ final class TemporaryMeasurementOverlayView: NSView {
                     rect: NSRect(x: rect.minX, y: rect.minY, width: rect.size.width, height: rect.size.height)
                 )
                 outline.lineWidth = isHovered ? 2 : 1
+                measurementColor.withAlphaComponent(0.08).setFill()
+                outline.fill()
                 outline.stroke()
             }
             if let text = AnnotationLayout.labelText(for: annotation.geometry),

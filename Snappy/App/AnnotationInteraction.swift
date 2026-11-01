@@ -254,7 +254,8 @@ enum AnnotationHitTester {
             }
         }
         for annotation in newestFirst {
-            if case .rectangle(let rect) = annotation.geometry, onOutline(point, of: rect, tolerance: tolerance) {
+            if case .rectangle(let rect) = annotation.geometry,
+               rect.contains(point) || onOutline(point, of: rect, tolerance: tolerance) {
                 return .body(annotation.id)
             }
         }
@@ -304,8 +305,12 @@ enum AnnotationEditing {
                     ? clamp(position + dy, size.height)
                     : clamp(position + dx, size.width)
             )
-        case .rectangle:
-            return geometry
+        case .rectangle(let rect):
+            return .rectangle(Rect2D(
+                x: clamp(rect.minX + dx, size.width - rect.size.width),
+                y: clamp(rect.minY + dy, size.height - rect.size.height),
+                width: rect.size.width, height: rect.size.height
+            ))
         }
     }
 
@@ -526,10 +531,6 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
             coordinator.removeAnnotation(id: id)
         case .body(let id):
             guard let annotation = annotation(id: id, displayID: displayID) else { return }
-            if case .rectangle = annotation.geometry {
-                coordinator.removeAnnotation(id: id)
-                return
-            }
             drag = Drag(id: id, displayID: displayID, startLocal: local, original: annotation.geometry)
         }
     }

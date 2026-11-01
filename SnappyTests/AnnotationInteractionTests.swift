@@ -32,6 +32,40 @@ final class AnnotationInteractionTests: XCTestCase {
         XCTAssertTrue(coordinator.activeSession?.displays[0].annotations.isEmpty ?? false)
     }
 
+    func testRectangleDragsFromInteriorAndOutlineAndDeletesFromLabel() {
+        let coordinator = MeasurementCoordinator()
+        session(coordinator)
+        let rect = Rect2D(x: 100, y: 100, width: 300, height: 200)
+        let annotation = MeasurementAnnotation(displayID: "d1", geometry: .rectangle(rect))
+        coordinator.addAnnotation(annotation)
+        let controller = AnnotationInteractionController(
+            coordinator: coordinator, surface: StubSurface(displays: [display]),
+            preferencesStore: .shared, currentMeasurement: { nil })
+        controller.start()
+        defer { controller.stop() }
+
+        for point in [Point2D(x: 120, y: 120), Point2D(x: 100, y: 150)] {
+            coordinator.updateAnnotationGeometry(id: annotation.id, geometry: .rectangle(rect))
+            XCTAssertEqual(AnnotationHitTester.hit(at: point, in: [annotation], labelFontSize: 14), .body(annotation.id))
+            controller.annotationMouseDown(displayID: "d1", at: point)
+            XCTAssertEqual(coordinator.activeSession?.annotationCount, 1)
+            controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: point.x + 40, y: point.y - 30))
+            controller.annotationMouseUp(displayID: "d1", at: Point2D(x: point.x + 40, y: point.y - 30))
+            XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                           .rectangle(Rect2D(x: 140, y: 70, width: 300, height: 200)))
+        }
+        XCTAssertEqual(AnnotationEditing.moved(.rectangle(rect), dx: 5000, dy: -5000,
+                                             within: display.logicalBounds.size),
+                       .rectangle(Rect2D(x: 700, y: 0, width: 300, height: 200)))
+        XCTAssertNil(AnnotationHitTester.hit(at: Point2D(x: 450, y: 350), in: [annotation], labelFontSize: 14))
+        coordinator.updateAnnotationGeometry(id: annotation.id, geometry: .rectangle(rect))
+        let labelCenter = Point2D(x: 250, y: 200)
+        XCTAssertEqual(AnnotationHitTester.hit(at: labelCenter, in: [annotation], labelFontSize: 14),
+                       .label(annotation.id))
+        controller.annotationMouseDown(displayID: "d1", at: labelCenter)
+        XCTAssertEqual(coordinator.activeSession?.annotationCount, 0)
+    }
+
     func testAnnotationForUnknownDisplayIsIgnored() {
         let coordinator = MeasurementCoordinator()
         session(coordinator)

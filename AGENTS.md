@@ -153,7 +153,9 @@ Do not simply snap each edge independently to the nearest visual edge.
 ### Persistent rectangles
 
 - Display the rectangle outline and its dimensions.
-- Clicking a persistent rectangle removes it.
+- Give persistent rectangles a faint transparent red fill.
+- Dragging the outline or filled interior of a persistent rectangle moves it without changing its dimensions.
+- Hovering the dimension label shows an X; clicking the X deletes the rectangle.
 - Rectangles remain visible after measurement mode is exited.
 - Rectangles should be independent of horizontal and vertical measurement annotations.
 

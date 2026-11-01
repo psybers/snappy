@@ -44,8 +44,8 @@ Preferences explains both permissions, can request them, and opens the matching 
 | `H` / `V` | Pin the current horizontal / vertical measurement |
 | `Shift+H` / `Shift+V` | Add a horizontal / vertical guideline at the pointer (spans that display) |
 | Drag | Select a region (the app underneath does not receive the drag); on release it becomes a persistent rectangle snapped to the content found |
-| Hover a pinned item | Drag measurements and guidelines to move them |
-| Click a measurement label (shows ✕) / rectangle outline or label | Delete it |
+| Hover a pinned item | Drag measurements, guidelines, and rectangles to move them; rectangles have a faint fill and can be dragged from their outline or interior |
+| Click a measurement or rectangle label (shows ✕) | Delete it |
 | Right-click a guideline | Delete it |
 | `Escape` | Exit measurement mode, save, and clear all annotations |
 
