@@ -91,6 +91,22 @@ enum AnnotationLayout {
                     width: size.width,
                     height: size.height
                 )
+
+                // Prevent overlap with previous label
+                if !labels.isEmpty {
+                    let lastRegion = labels.last!.region
+                    let lastMaxY = lastRegion.maxY
+                    if region.minY < lastMaxY + labelSpacing {
+                        // Shift this label down
+                        let shift = lastMaxY + labelSpacing - region.minY
+                        region = Rect2D(
+                            x: region.minX,
+                            y: region.minY + shift,
+                            width: region.size.width,
+                            height: region.size.height
+                        )
+                    }
+                }
             } else {
                 // Vertical guidelines (Shift+V): labels at top edge
                 // macOS coordinates have origin at bottom-left, so top is height - offset - menuBarHeight
