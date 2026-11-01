@@ -61,10 +61,10 @@ struct PreferencesView: View {
 
             Section("Accessibility access") {
                 if accessibilityPermissions.isTrusted {
-                    Label("Accessibility permission is available.", systemImage: "checkmark.circle")
+                    Label("Accessibility permission is enabled.", systemImage: "checkmark.circle")
                         .foregroundStyle(.green)
                 } else {
-                    Text("Enable Snappy under Privacy & Security > Accessibility in System Settings. This permission allows Snappy to inspect the UI element under the pointer and receive H, V, and Escape while another app is active. The global shortcut and pointer tracking work separately. Some apps may not expose useful element boundaries; Screen Recording is not requested by this milestone.")
+                    Text("Enable Snappy under Privacy & Security > Accessibility in System Settings. This permission allows Snappy to inspect the UI element under the pointer and receive H, V, and Escape while another app is active. The global shortcut and pointer tracking work separately. Some apps may not expose useful element boundaries.")
                         .font(.callout)
 
                     Button("Request Accessibility Permission") {
@@ -89,7 +89,7 @@ struct PreferencesView: View {
 
             Section("Screen Recording access") {
                 if screenRecordingPermissions.isAuthorized {
-                    Label("Screen Recording permission is available.", systemImage: "checkmark.circle")
+                    Label("Screen Recording permission is enabled.", systemImage: "checkmark.circle")
                         .foregroundStyle(.green)
                 } else {
                     Text("Screen Recording lets Snappy capture a small region around the pointer when the current app does not expose a usable Accessibility boundary. Captures are requested only as needed and are not saved.")
