@@ -462,6 +462,7 @@ struct TemporaryDimensionLabels: Equatable {
 @MainActor
 final class TemporaryMeasurementOverlayView: NSView {
     private let roundRadius = 10.0
+    private let bgFillAlpha = 0.6
     private(set) var content: TemporaryMeasurementOverlayContent?
     var displayID: String?
     weak var mouseHandler: AnnotationMouseHandling?
@@ -583,7 +584,7 @@ final class TemporaryMeasurementOverlayView: NSView {
             )
             for (region, text) in distanceLabels {
                 let labelRect = NSRect(x: region.minX, y: region.minY, width: region.size.width, height: region.size.height)
-                NSColor.black.withAlphaComponent(0.78).setFill()
+                NSColor.black.withAlphaComponent(bgFillAlpha).setFill()
                 NSBezierPath(roundedRect: labelRect, xRadius: roundRadius, yRadius: roundRadius).fill()
                 let attributes: [NSAttributedString.Key: Any] = [
                     .font: NSFont.systemFont(ofSize: fontSize),
@@ -608,7 +609,7 @@ final class TemporaryMeasurementOverlayView: NSView {
             )
             for (region, text) in distanceLabels {
                 let labelRect = NSRect(x: region.minX, y: region.minY, width: region.size.width, height: region.size.height)
-                NSColor.black.withAlphaComponent(0.78).setFill()
+                NSColor.black.withAlphaComponent(bgFillAlpha).setFill()
                 NSBezierPath(roundedRect: labelRect, xRadius: roundRadius, yRadius: roundRadius).fill()
                 let attributes: [NSAttributedString.Key: Any] = [
                     .font: NSFont.systemFont(ofSize: fontSize),
@@ -666,7 +667,7 @@ final class TemporaryMeasurementOverlayView: NSView {
             {
                 let labelRect = NSRect(x: rect.minX, y: rect.minY, width: rect.size.width, height: rect.size.height)
                 let deleting = hover == .label(annotation.id)
-                (deleting ? NSColor.systemRed : NSColor.black.withAlphaComponent(0.78)).setFill()
+                (deleting ? NSColor.systemRed : NSColor.black.withAlphaComponent(bgFillAlpha)).setFill()
                 NSBezierPath(roundedRect: labelRect, xRadius: roundRadius, yRadius: roundRadius).fill()
                 let shown = deleting ? "✕" : text
                 let attributes: [NSAttributedString.Key: Any] = [
@@ -888,7 +889,7 @@ final class TemporaryMeasurementOverlayView: NSView {
         let labelSize = NSSize(width: textSize.width + 10, height: textSize.height + 6)
         let origin = TemporaryDimensionLabels.origin(pointer: pointer, labelSize: labelSize, in: bounds)
         let labelRect = NSRect(origin: origin, size: labelSize)
-        NSColor.black.withAlphaComponent(0.78).setFill()
+        NSColor.black.withAlphaComponent(bgFillAlpha).setFill()
         NSBezierPath(roundedRect: labelRect, xRadius: roundRadius, yRadius: roundRadius).fill()
         (text as NSString).draw(
             at: NSPoint(x: labelRect.minX + 5, y: labelRect.minY + 3),
