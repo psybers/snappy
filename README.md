@@ -4,6 +4,19 @@ Snappy is a native macOS menu-bar screen measurement utility, built with SwiftUI
 
 This was vibe coded with GitHub Copilot. I don't know Swift and had never made a macOS app, so it may be buggy. I want to keep it basic; the current feature set is probably the most I will add. Bug-fix PRs are welcome.
 
+## Installing
+
+The easiest way to install is via Homebrew:
+
+```sh
+brew trust --cask psybers/homebrew-tap/snappy
+xattr -d com.apple.quarantine /Applications/Snappy.app
+```
+
+Note that if you don't remove the quarantine, the app won't run.  You can do
+that with the above command, or by going into Settings and allowing the program
+to run.
+
 ## Build and setup
 
 1. Open `Snappy.xcodeproj` in Xcode and build/run the **Snappy** scheme (macOS 26.0+, required for ScreenCaptureKit one-shot region capture).
