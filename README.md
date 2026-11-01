@@ -60,6 +60,8 @@ Detection is event-driven (no polling timers); pointer updates are coalesced, on
 
 ## Known limitations
 
+- Public Screen Recording APIs report access as a Boolean; they do not expose whether Snappy is absent from System Settings or listed but disabled. On the first shortcut permission request of each app run, Snappy lets macOS present its dialog and shows no additional alert. If a later attempt still fails, Snappy offers to open System Settings. An already-disabled entry therefore requires a second attempt for that guidance. If you remove the permission entry while Snappy is running, relaunch Snappy before requesting access again.
+
 - Live cursor measurements scan a cached full-monitor image so large areas are not clipped to a cursor crop. Thin and softened borders are confirmed along the edge, with an 8-level per-channel contrast threshold across transitions up to two points wide; subtle gradients and textured content can still produce imperfect measurements.
 - Vision and pixel-extent results are heuristics, not semantic UI element boundaries; ambiguous areas report "unavailable" rather than guessed bounds.
 - While measuring, Snappy's overlays capture all mouse events (nothing reaches the app underneath) and show a crosshair cursor; guidelines show resize cursors. Cursor changes from a background app use a private CoreGraphics connection property; if a cursor does not change on your macOS version, that is the cause.

@@ -316,12 +316,25 @@ final class GlobalShortcutService: ObservableObject {
 /// so fall back to asking ScreenCaptureKit directly.
 enum ScreenAccessProbe {
     @MainActor private(set) static var verified = false
+    @MainActor private static var requestedThisRun = false
+    @MainActor private static var checking = false
 
     @MainActor
     static func verify(promptIfDenied: Bool) async -> Bool {
+        guard !checking else { return false }
+        checking = true
+        defer { checking = false }
         if CGPreflightScreenCaptureAccess() {
             verified = true
             return true
+        }
+        // Public APIs cannot tell an absent privacy entry from a disabled one.
+        // Give macOS the first request of each run, without following its dialog
+        // with our own. A persisted flag would become stale after a TCC reset.
+        if promptIfDenied && !requestedThisRun {
+            requestedThisRun = true
+            verified = CGRequestScreenCaptureAccess()
+            return verified
         }
         if (try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)) != nil {
             verified = true
@@ -329,14 +342,7 @@ enum ScreenAccessProbe {
         }
         verified = false
         guard promptIfDenied else { return false }
-        // macOS only shows its own dialog the first time; afterwards guide the user ourselves.
-        let key = "screenCapturePromptShown"
-        if !UserDefaults.standard.bool(forKey: key) {
-            UserDefaults.standard.set(true, forKey: key)
-            _ = CGRequestScreenCaptureAccess()
-        } else {
-            showEnableAlert()
-        }
+        showEnableAlert()
         return false
     }
 
