@@ -17,6 +17,13 @@ Note that if you don't remove the quarantine, the app won't run.  You can do
 that with the above command, or by going into Settings and allowing the program
 to run.
 
+## Updating
+
+```sh
+brew upgrade psybers/tap/snappy
+xattr -d com.apple.quarantine /Applications/Snappy.app
+```
+
 ## Build and setup
 
 1. Open `Snappy.xcodeproj` in Xcode and build/run the **Snappy** scheme (macOS 26.0+, required for ScreenCaptureKit one-shot region capture).
