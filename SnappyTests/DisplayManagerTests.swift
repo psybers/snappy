@@ -44,6 +44,43 @@ final class DisplayManagerTests: XCTestCase {
         XCTAssertTrue(registry.unavailableGroups.isEmpty)
     }
 
+    @MainActor
+    func testToleranceChangeRedetectsWithoutPointerMovement() async throws {
+        let display = makeDisplay(id: "display-a", x: 0)
+        let coordinator = MeasurementCoordinator()
+        let pointer = Point2D(x: 50, y: 50)
+        coordinator.startFreshSession(displays: [display], pointer: pointer)
+        let detector = StubElementDetector(responses: [
+            (0, .unavailable(.noConfidentBoundary)),
+            (0, .unavailable(.noConfidentBoundary))
+        ])
+        let presenter = StubMeasurementPresenter()
+        let preferences = PreferencesStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        let controller = TemporaryMeasurementController(
+            coordinator: coordinator, detector: detector, displayManager: presenter,
+            displaySource: StubMeasurementDisplayProvider(display: display),
+            preferencesStore: preferences, minimumDetectionInterval: 0)
+        controller.start()
+        defer { controller.stop() }
+        try await Task.sleep(nanoseconds: 30_000_000)
+        XCTAssertEqual(detector.callCount, 1)
+        preferences.setEdgeToleranceLevel(.low)
+        try await Task.sleep(nanoseconds: 30_000_000)
+        XCTAssertEqual(detector.callCount, 2)
+        XCTAssertEqual(presenter.presentedPointers, [pointer, pointer])
+    }
+
+    @MainActor
+    func testToastCanBeReplacedAndDismissed() {
+        let view = TemporaryMeasurementOverlayView(frame: NSRect(x: 0, y: 0, width: 1000, height: 800))
+        view.setToast("Tolerance: Low (4)")
+        XCTAssertEqual(view.toastText, "Tolerance: Low (4)")
+        view.setToast("Tolerance: Medium (8)")
+        XCTAssertEqual(view.toastText, "Tolerance: Medium (8)")
+        view.setToast(nil)
+        XCTAssertNil(view.toastText)
+    }
+
     func testOverlayPanelIsTransparentNonactivatingAndClickThrough() async {
         await MainActor.run {
             let frame = NSRect(x: -1000, y: 0, width: 1000, height: 800)

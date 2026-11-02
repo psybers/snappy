@@ -3,6 +3,21 @@ import XCTest
 
 @MainActor
 final class MeasurementCoordinatorTests: XCTestCase {
+    func testToleranceKeysOnlyApplyWhileMeasuringWithoutModifiers() {
+        let coordinator = MeasurementCoordinator()
+        var adjustments: [Int] = []
+        let subscription = coordinator.toleranceAdjustments.sink { adjustments.append($0) }
+        defer { subscription.cancel() }
+        coordinator.keyDown(key: "t", keyCode: 17, modifiers: [])
+        XCTAssertTrue(adjustments.isEmpty)
+        coordinator.startFreshSession(displays: [], pointer: Point2D(x: 50, y: 50))
+        coordinator.keyDown(key: "t", keyCode: 17, modifiers: [])
+        coordinator.keyDown(key: "-", keyCode: 27, modifiers: [])
+        coordinator.keyDown(key: "=", keyCode: 24, modifiers: [])
+        coordinator.keyDown(key: "t", keyCode: 17, modifiers: [.command])
+        XCTAssertEqual(adjustments, [0, -1, 1])
+    }
+
     func testHeldArrowRepeatsUntilReleasedOrMeasurementStops() {
         var moveCount = 0
         let coordinator = MeasurementCoordinator { point, dx, dy in

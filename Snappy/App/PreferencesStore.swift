@@ -78,6 +78,25 @@ final class PreferencesStore: ObservableObject {
         update { $0 = .default }
     }
 
+    func setEdgeToleranceLevel(_ level: EdgeToleranceLevel) {
+        update { $0.edgeTolerance.level = level }
+    }
+
+    func setEdgeToleranceValue(_ value: Int, for level: EdgeToleranceLevel) {
+        var settings = preferences.edgeTolerance
+        switch level {
+        case .zero: return
+        case .low: settings.low = value
+        case .medium: settings.medium = value
+        case .high: settings.high = value
+        }
+        guard (1...100).contains(value), settings.low <= settings.medium, settings.medium <= settings.high else {
+            validationMessage = "Use values from 1 to 100, with Low ≤ Medium ≤ High."
+            return
+        }
+        update { $0.edgeTolerance = settings }
+    }
+
     private func update(_ change: (inout AppPreferences) -> Void) {
         var updated = preferences
         change(&updated)

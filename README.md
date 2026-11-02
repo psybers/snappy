@@ -40,6 +40,7 @@ Preferences explains both permissions, can request them, and opens the matching 
 |---|---|
 | Cmd+Shift+F (configurable) | Start measurement mode; press again to exit and keep annotations visible |
 | Arrow keys / Shift+Arrow keys | Move the cursor 1 / 10 physical display pixels and update the measurement or Shift crosshair |
+| `T` / `-` / `=` | Cycle edge tolerance with wraparound / decrease / increase without wraparound; a toast shows the new level |
 | Move the mouse | Horizontal and vertical measurement lines with T caps and W/H labels |
 | `H` / `V` | Pin the current horizontal / vertical measurement |
 | `Shift+H` / `Shift+V` | Add a horizontal / vertical guideline at the pointer (spans that display) |
@@ -50,6 +51,8 @@ Preferences explains both permissions, can request them, and opens the matching 
 | `Escape` | Exit measurement mode, save, and clear all annotations |
 
 Menu: Preferences..., Restore Last Session, Clear Annotations (no confirmation), Quit. Preferences covers the shortcut, measurement and guideline colours, and label font size.
+
+Edge tolerance levels are Zero (fixed at 0), Low (4), Medium (8, the default), and High (16). Preferences lets you override Low, Medium, and High with ordered values from 1–100 and choose the active level. These settings persist across launches. Tolerance is the maximum per-channel RGB difference ignored by visual edge detection: higher values ignore more subtle color changes. Changes rescan the current measurement without moving the pointer and show a brief toast at the bottom center of the pointer's monitor. Accessibility bounds are unaffected.
 
 ## Session behaviour
 
@@ -77,7 +80,7 @@ Detection is event-driven (no polling timers); pointer updates are coalesced, on
 
 - Public Screen Recording APIs report access as a Boolean; they do not expose whether Snappy is absent from System Settings or listed but disabled. On the first shortcut permission request of each app run, Snappy lets macOS present its dialog and shows no additional alert. If a later attempt still fails, Snappy offers to open System Settings. An already-disabled entry therefore requires a second attempt for that guidance. If you remove the permission entry while Snappy is running, relaunch Snappy before requesting access again.
 
-- Live cursor measurements scan a cached full-monitor image so large areas are not clipped to a cursor crop. Thin and softened borders are confirmed along the edge, with an 8-level per-channel contrast threshold across transitions up to two points wide; subtle gradients and textured content can still produce imperfect measurements.
+- Live cursor measurements scan a cached full-monitor image so large areas are not clipped to a cursor crop. Thin and softened borders are confirmed along the edge using the selected tolerance (8 by default) across transitions up to two points wide; subtle gradients and textured content can still produce imperfect measurements.
 - Vision and pixel-extent results are heuristics, not semantic UI element boundaries; ambiguous areas report "unavailable" rather than guessed bounds.
 - While measuring, Snappy's overlays capture all mouse events (nothing reaches the app underneath) and show a crosshair cursor; guidelines show resize cursors. Cursor changes from a background app use a private CoreGraphics connection property; if a cursor does not change on your macOS version, that is the cause.
 - A selection is analysed on a single display; the visual fallback only looks inside the dragged area.

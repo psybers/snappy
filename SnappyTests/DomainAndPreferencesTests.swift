@@ -1,6 +1,50 @@
 import XCTest
 
 final class DomainAndPreferencesTests: XCTestCase {
+    func testToleranceDefaultsCyclingAndLimits() {
+        let settings = AppPreferences.default.edgeTolerance
+        XCTAssertEqual(settings.level, .medium)
+        XCTAssertEqual(settings.value, PixelExtentDetector().edgeThreshold)
+        XCTAssertEqual(settings.low, 4)
+        XCTAssertEqual(settings.high, 16)
+        XCTAssertEqual(EdgeToleranceLevel.high.adjusted(by: 1, wrapping: true), .zero)
+        XCTAssertEqual(EdgeToleranceLevel.zero.adjusted(by: -1), .zero)
+        XCTAssertEqual(EdgeToleranceLevel.high.adjusted(by: 1), .high)
+        XCTAssertEqual(EdgeToleranceLevel.medium.adjusted(by: -1), .low)
+        var zero = settings
+        zero.level = .zero
+        XCTAssertEqual(zero.value, 0)
+    }
+
+    func testOldPreferencesKeepTheirValuesAndGetMediumTolerance() throws {
+        var preferences = AppPreferences.default
+        preferences.dimensionLabelFontSize = 23
+        let data = try JSONEncoder().encode(preferences)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertNil(object["edgeToleranceSettings"])
+        let restored = try JSONDecoder().decode(AppPreferences.self, from: data).validated()
+        XCTAssertEqual(restored.dimensionLabelFontSize, 23)
+        XCTAssertEqual(restored.edgeTolerance.level, .medium)
+        XCTAssertEqual(restored.edgeTolerance.value, 8)
+    }
+
+    func testToleranceOverridesPersistAndRejectInvalidValues() {
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        let store = PreferencesStore(defaults: defaults)
+        store.setEdgeToleranceValue(3, for: .low)
+        store.setEdgeToleranceValue(10, for: .medium)
+        store.setEdgeToleranceValue(25, for: .high)
+        store.setEdgeToleranceLevel(.high)
+        let restored = PreferencesStore(defaults: defaults)
+        XCTAssertEqual(restored.preferences.edgeTolerance,
+                       EdgeToleranceSettings(level: .high, low: 3, medium: 10, high: 25))
+        store.setEdgeToleranceValue(300, for: .medium)
+        XCTAssertNotNil(store.validationMessage)
+        XCTAssertEqual(store.preferences.edgeTolerance.medium, 10)
+        store.setEdgeToleranceValue(0, for: .zero)
+        XCTAssertEqual(store.preferences.edgeTolerance.value, 25)
+    }
+
     func testDisplayCoordinatesRoundTripWithNegativeOrigin() {
         let display = Rect2D(x: -1920, y: 120, width: 1920, height: 1080)
         let global = Point2D(x: -1810, y: 250)

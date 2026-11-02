@@ -51,6 +51,7 @@ final class MeasurementCoordinator: ObservableObject {
     private(set) var keepsAnnotationsOnExit = false
 
     let commands = PassthroughSubject<MeasurementCommand, Never>()
+    let toleranceAdjustments = PassthroughSubject<Int, Never>()
 
     private var ignoresActivationShift = false
 
@@ -201,6 +202,14 @@ final class MeasurementCoordinator: ObservableObject {
 
     func keyDown(key: String, keyCode: UInt16, modifiers: Set<ShortcutModifier>) {
         guard mode.isActive else { return }
+        if modifiers.isEmpty {
+            switch key.lowercased() {
+            case "t": toleranceAdjustments.send(0); return
+            case "-": toleranceAdjustments.send(-1); return
+            case "=": toleranceAdjustments.send(1); return
+            default: break
+            }
+        }
         if keyCode == 53 {
             stop()
             return

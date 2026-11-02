@@ -4,6 +4,40 @@ import XCTest
 
 @MainActor
 final class ScreenCaptureDetectionTests: XCTestCase {
+    func testToleranceChangesWhichColorTransitionsAreEdges() async throws {
+        let display = makeDisplay()
+        let context = try imageContext(width: 320, height: 240)
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 320, height: 240))
+        // A six-level contrast: visible at Zero/Low, ignored at Medium/High.
+        context.setFillColor(CGColor(gray: 249.0 / 255, alpha: 1))
+        context.fill(CGRect(x: 60, y: 50, width: 200, height: 140))
+        let image = try XCTUnwrap(context.makeImage())
+        let captured = CapturedDisplayRegion(image: image, displayID: display.id,
+                                             displayLocalBounds: Rect2D(x: 0, y: 0, width: 320, height: 240))
+        for threshold in [0, 4, 8, 16] {
+            let detector = PixelExtentDetector(edgeThreshold: threshold)
+            let result = try XCTUnwrap(detector.detect(in: captured, pointer: Point2D(x: 100, y: 100), display: display))
+            XCTAssertEqual(result.bounds.minX, threshold < 6 ? 60 : 0, accuracy: 1.5)
+            XCTAssertEqual(result.bounds.maxX, threshold < 6 ? 260 : 320, accuracy: 1.5)
+        }
+        let capturer = ScreenRegionCapturerStub(result: .success(captured))
+        var threshold = 4
+        let service = ElementDetectionService(
+            accessibilityClient: AccessibilityClientStub(element: nil), screenCapturer: capturer,
+            visualDetector: VisualBoundaryDetector(), screenPermission: ScreenPermissionStub(authorized: true),
+            minimumCaptureInterval: 0.12, captureRegionSize: display.logicalBounds.size,
+            extentDetector: PixelExtentDetector(), accessibilityFirst: false, edgeTolerance: { threshold })
+        for value in [4, 16] {
+            threshold = value
+            let result = await service.detect(at: Point2D(x: 160, y: 120), displays: [display],
+                                              primaryDisplayBounds: display.logicalBounds)
+            guard case .detected(let candidate) = result else { return XCTFail("Expected an edge result") }
+            XCTAssertEqual(candidate.bounds.minX, value == 4 ? 60 : 0, accuracy: 1.5)
+        }
+        XCTAssertEqual(capturer.captureCount, 1, "Tolerance changes should reuse captured pixels")
+    }
+
     func testRegionCaptureUsesScreenCaptureKitDespiteNegativeLegacyPermissionCheck() async throws {
         let permission = ScreenPermissionStub(authorized: false)
         let display = DisplayDescriptor(

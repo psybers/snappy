@@ -42,16 +42,60 @@ struct ColorComponents: Codable, Equatable {
     }
 }
 
+enum EdgeToleranceLevel: Int, Codable, CaseIterable, Identifiable {
+    case zero, low, medium, high
+    var id: Int { rawValue }
+    var title: String { ["Zero", "Low", "Medium", "High"][rawValue] }
+
+    func adjusted(by step: Int, wrapping: Bool = false) -> Self {
+        let index = rawValue + step
+        return Self(rawValue: wrapping ? (index % 4 + 4) % 4 : min(max(index, 0), 3))!
+    }
+}
+
+struct EdgeToleranceSettings: Codable, Equatable {
+    var level: EdgeToleranceLevel = .medium
+    var low = 4
+    var medium = 8
+    var high = 16
+
+    var value: Int {
+        switch level {
+        case .zero: 0
+        case .low: low
+        case .medium: medium
+        case .high: high
+        }
+    }
+
+    func validated() -> Self {
+        var result = self
+        if !(1...100).contains(low) { result.low = 4 }
+        if !(result.low...100).contains(medium) { result.medium = max(8, result.low) }
+        if !(result.medium...100).contains(high) { result.high = max(16, result.medium) }
+        return result
+    }
+}
+
 struct AppPreferences: Codable, Equatable {
     var shortcut = ShortcutConfiguration.default
     var measurementColor = ColorComponents.measurementDefault
     var guidelineColor = ColorComponents.guidelineDefault
     var dimensionLabelFontSize = 14.0
+    // Optional storage preserves decoding of preferences saved before tolerance settings existed.
+    var edgeToleranceSettings: EdgeToleranceSettings?
+    var edgeTolerance: EdgeToleranceSettings {
+        get { edgeToleranceSettings ?? EdgeToleranceSettings() }
+        set { edgeToleranceSettings = newValue }
+    }
 
     static let `default` = AppPreferences()
 
     func validated() -> AppPreferences {
         var result = self
+        if let edgeToleranceSettings {
+            result.edgeToleranceSettings = edgeToleranceSettings.validated()
+        }
         result.shortcut = shortcut.normalized() ?? .default
         if !measurementColor.isValid {
             result.measurementColor = .measurementDefault

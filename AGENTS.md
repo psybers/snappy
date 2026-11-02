@@ -285,6 +285,8 @@ Avoid unnecessary animations, visual clutter, and opaque backgrounds.
 
 # 10. Preferences
 
+Measurement mode supports four edge tolerance levels: Zero (fixed at 0), Low (default 4), Medium (default 8 and initially selected), and High (default 16). Low, Medium, and High values and the selected level persist in preferences. Values are per-channel RGB contrast thresholds; higher levels ignore larger color differences. T cycles levels with wraparound; - decreases and = increases without wraparound. A change immediately refreshes the measurement and displays a brief toast centered near the bottom of the pointer's monitor. Accessibility element bounds are unaffected.
+
 Provide a Preferences window accessible from the menu bar.
 
 At a minimum, preferences should support:

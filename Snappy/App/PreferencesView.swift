@@ -14,6 +14,7 @@ struct PreferencesView: View {
     }
 
     var body: some View {
+        ScrollView {
         Form {
             Section("Measurement shortcut") {
                 HStack {
@@ -39,6 +40,31 @@ struct PreferencesView: View {
                     Text(registrationError)
                         .foregroundStyle(.red)
                 }
+            }
+
+            Section("Edge tolerance") {
+                Picker("Level", selection: Binding(
+                    get: { store.preferences.edgeTolerance.level },
+                    set: { store.setEdgeToleranceLevel($0) }
+                )) {
+                    ForEach(EdgeToleranceLevel.allCases) { level in
+                        Text(level.title).tag(level)
+                    }
+                }
+                ForEach([EdgeToleranceLevel.low, .medium, .high]) { level in
+                    HStack {
+                        Text(level.title)
+                            .frame(width: 60, alignment: .leading)
+                        Slider(value: toleranceBinding(for: level), in: 1...100, step: 1)
+                            .accessibilityLabel("\(level.title) edge tolerance")
+                        Text("\(Int(toleranceBinding(for: level).wrappedValue))")
+                            .monospacedDigit()
+                            .frame(width: 32, alignment: .trailing)
+                    }
+                }
+                Text("Zero is fixed at 0. Higher values ignore larger color differences.\nUse T to cycle, − to decrease, and = to increase while measuring.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Appearance") {
@@ -127,8 +153,8 @@ struct PreferencesView: View {
             }
         }
         .padding(20)
-        .frame(width: 560)
-        .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(width: 560, height: min(800, (NSScreen.main?.visibleFrame.height ?? 900) - 100))
         .navigationTitle("Snappy Preferences")
         .onAppear {
             accessibilityPermissions.refresh()
@@ -153,6 +179,17 @@ struct PreferencesView: View {
         Binding(
             get: { store.preferences.dimensionLabelFontSize },
             set: { store.setDimensionLabelFontSize($0) }
+        )
+    }
+
+    private func toleranceBinding(for level: EdgeToleranceLevel) -> Binding<Double> {
+        Binding(
+            get: {
+                var settings = store.preferences.edgeTolerance
+                settings.level = level
+                return Double(settings.value)
+            },
+            set: { store.setEdgeToleranceValue(Int($0.rounded()), for: level) }
         )
     }
 

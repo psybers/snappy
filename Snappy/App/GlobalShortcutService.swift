@@ -69,8 +69,12 @@ final class GlobalShortcutService: ObservableObject {
         0xA0A: ("", kVK_RightArrow, true),
         0xA0B: ("", kVK_DownArrow, true),
         0xA0C: ("", kVK_UpArrow, true),
+        0xA0D: ("t", kVK_ANSI_T, false),
+        0xA0E: ("-", kVK_ANSI_Minus, false),
+        0xA0F: ("=", kVK_ANSI_Equal, false),
     ]
     private var modeSubscription: AnyCancellable?
+    private var toleranceSubscription: AnyCancellable?
     private static let escapeHotKeyID: UInt32 = 0xE5C
     /// Returns true when measuring may start; otherwise it triggers the system permission prompt.
     var screenAccessGate: () async -> Bool = {
@@ -102,6 +106,13 @@ final class GlobalShortcutService: ObservableObject {
         guard !isStarted else { return }
         isStarted = true
         installCarbonHandler()
+        toleranceSubscription = coordinator.toleranceAdjustments.sink { [weak self] step in
+            guard let self else { return }
+            let current = preferencesStore.preferences.edgeTolerance.level
+            let next = current.adjusted(by: step == 0 ? 1 : step, wrapping: step == 0)
+            guard next != current else { return }
+            preferencesStore.setEdgeToleranceLevel(next)
+        }
         modeSubscription = coordinator.$mode
             .map(\.isActive)
             .removeDuplicates()
@@ -123,6 +134,8 @@ final class GlobalShortcutService: ObservableObject {
         preferencesSubscription = nil
         modeSubscription?.cancel()
         modeSubscription = nil
+        toleranceSubscription?.cancel()
+        toleranceSubscription = nil
         setEscapeHotKey(enabled: false)
         unregisterHotKey()
         guard hotKey == nil, retiredHotKeys.isEmpty else { return }

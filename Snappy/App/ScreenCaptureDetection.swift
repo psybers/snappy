@@ -241,6 +241,7 @@ final class ElementDetectionService: ElementDetecting {
     private var refreshTask: Task<Void, Never>?
     private let cacheMargin = 120.0
     private let cacheRefreshAge: TimeInterval = 1.0
+    private let edgeTolerance: (() -> Int)?
 
     private struct CachedCapture {
         let captured: CapturedDisplayRegion
@@ -285,7 +286,8 @@ final class ElementDetectionService: ElementDetecting {
             minimumCaptureInterval: 0.12,
             captureRegionSize: Size2D(width: 1000, height: 700),
             extentDetector: PixelExtentDetector(),
-            accessibilityFirst: false
+            accessibilityFirst: false,
+            edgeTolerance: { PreferencesStore.shared.preferences.edgeTolerance.value }
         )
     }
 
@@ -297,8 +299,10 @@ final class ElementDetectionService: ElementDetecting {
         minimumCaptureInterval: TimeInterval,
         captureRegionSize: Size2D,
         extentDetector: PixelExtentDetector? = nil,
-        accessibilityFirst: Bool = true
+        accessibilityFirst: Bool = true,
+        edgeTolerance: (() -> Int)? = nil
     ) {
+        self.edgeTolerance = edgeTolerance
         self.extentDetector = extentDetector
         self.accessibilityFirst = accessibilityFirst
         self.accessibilityDetector = AccessibilityElementDetector(client: accessibilityClient)
@@ -374,7 +378,8 @@ final class ElementDetectionService: ElementDetecting {
             cache = CachedCapture(captured: captured, pixels: pixels, date: Date())
         }
 
-        if let extentDetector {
+        if var extentDetector {
+            if let edgeTolerance { extentDetector.edgeThreshold = edgeTolerance() }
             let pointer = DisplayCoordinateMapper.globalToDisplayLocal(
                 globalPointer,
                 displayBounds: display.logicalBounds
@@ -426,7 +431,7 @@ final class ElementDetectionService: ElementDetecting {
 /// visually uniform area under the pointer, returned as the rectangle spanned
 /// by those two extents. Works on any content, not only recognised elements.
 struct PixelExtentDetector {
-    /// Largest per-channel difference across a short edge transition (0...255)
+    /// Largest per-channel difference across a short edge transition (0...100)
     /// that is still considered the same visual area.
     var edgeThreshold = 8
 

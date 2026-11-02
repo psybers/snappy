@@ -50,6 +50,12 @@ final class DisplayManager: ObservableObject, MeasurementDisplayProviding, Annot
     @Published private(set) var annotationRegistry = DisplayAnnotationRegistry()
 
     private var overlayWindows: [String: ScreenOverlayPanel] = [:]
+
+    func showToleranceToast(_ settings: EdgeToleranceSettings, at pointer: Point2D) {
+        guard let display = connectedDisplays.first(where: { $0.logicalBounds.contains(pointer) }) else { return }
+        for panel in overlayWindows.values { panel.annotationView?.setToast(nil) }
+        overlayWindows[display.id]?.annotationView?.setToast("Tolerance: \(settings.level.title) (\(settings.value))")
+    }
     private weak var mouseHandler: AnnotationMouseHandling?
     private var capturesMouse = false
     fileprivate var freezeGeneration = 0
@@ -400,6 +406,7 @@ extension DisplayManager {
     }
 
     func unfreezeScreens() {
+        for panel in overlayWindows.values { panel.annotationView?.setToast(nil) }
         freezeGeneration += 1
         for panel in overlayWindows.values { panel.annotationView?.frozenImage = nil }
     }
@@ -485,6 +492,36 @@ struct TemporaryDimensionLabels: Equatable {
 
 @MainActor
 final class TemporaryMeasurementOverlayView: NSView {
+    private(set) var toastText: String?
+    private var toastTask: Task<Void, Never>?
+
+    func setToast(_ text: String?) {
+        toastTask?.cancel()
+        toastText = text
+        needsDisplay = true
+        guard text != nil else { return }
+        toastTask = Task { [weak self] in
+            do { try await Task.sleep(nanoseconds: 1_500_000_000) }
+            catch { return }
+            self?.toastText = nil
+            self?.needsDisplay = true
+        }
+    }
+
+    private func drawToast() {
+        guard let toastText else { return }
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 15, weight: .medium),
+            .foregroundColor: NSColor.white
+        ]
+        let size = (toastText as NSString).size(withAttributes: attributes)
+        let rect = NSRect(x: bounds.midX - (size.width + 32) / 2,
+                          y: bounds.minY + 60, width: size.width + 32, height: size.height + 20)
+        NSColor.black.withAlphaComponent(0.85).setFill()
+        NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10).fill()
+        (toastText as NSString).draw(at: NSPoint(x: rect.minX + 16, y: rect.minY + 10),
+                                   withAttributes: attributes)
+    }
     private let roundRadius = 10.0
     private let bgFillAlpha = 0.6
     private(set) var content: TemporaryMeasurementOverlayContent?
@@ -839,6 +876,7 @@ final class TemporaryMeasurementOverlayView: NSView {
         case nil:
             break
         }
+        drawToast()
     }
 
     private func drawSelection() {
@@ -991,6 +1029,7 @@ final class TemporaryMeasurementController {
     private var isShowingCrosshair = false
     private var latestPointer: Point2D?
     private var lastResult: ElementDetectionResult?
+    private var lastTolerance: EdgeToleranceSettings?
     private(set) var lastDetectedCandidate: DetectionCandidate?
     private var lastPointer: Point2D?
     private var lastDetectionStart = Date.distantPast
@@ -1178,6 +1217,22 @@ final class TemporaryMeasurementController {
     }
 
     private func refreshPresentation(preferences: AppPreferences) {
+        let tolerance = preferences.edgeTolerance
+        let changed = lastTolerance != nil && lastTolerance != tolerance
+        lastTolerance = tolerance
+        if changed, let pointer = coordinator.mode.pointer {
+            (displayManager as? DisplayManager)?.showToleranceToast(tolerance, at: pointer)
+            // A stationary pointer must be rescanned; discard results from the old threshold.
+            detectionTask?.cancel()
+            detectionTask = nil
+            detectionTaskID = nil
+            pointerGeneration += 1
+            lastResult = nil
+            lastPointer = nil
+            lastDetectedCandidate = nil
+            latestPointer = pointer
+            if case .tracking(_, false) = coordinator.mode { scheduleDetection() }
+        }
         if case .tracking(let pointer, true) = coordinator.mode {
             displayManager.showTemporaryCrosshair(at: pointer, preferences: preferences)
             return
