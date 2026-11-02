@@ -18,7 +18,6 @@ struct PreferencesView: View {
         Form {
             Section("Measurement shortcut") {
                 HStack {
-                    Text("Key")
                     TextField("Key", text: shortcutKeyBinding)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 72)
@@ -27,10 +26,6 @@ struct PreferencesView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Text("Key positions use the standard macOS ANSI virtual-key mapping.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
                 HStack {
                     ForEach(ShortcutModifier.allCases) { modifier in
                         Toggle(modifier.rawValue.capitalized, isOn: modifierBinding(modifier))
@@ -51,6 +46,9 @@ struct PreferencesView: View {
                         Text(level.title).tag(level)
                     }
                 }
+                Text("Zero is fixed at 0. Higher values ignore larger color differences.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 ForEach([EdgeToleranceLevel.low, .medium, .high]) { level in
                     HStack {
                         Text(level.title)
@@ -62,7 +60,7 @@ struct PreferencesView: View {
                             .frame(width: 32, alignment: .trailing)
                     }
                 }
-                Text("Zero is fixed at 0. Higher values ignore larger color differences.\nUse T to cycle, − to decrease, and = to increase while measuring.")
+                Text("Use T to cycle, − to decrease, and = to increase while measuring.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -85,7 +83,7 @@ struct PreferencesView: View {
                 }
             }
 
-            Section("Accessibility access") {
+            Section("System Permissions") {
                 if accessibilityPermissions.isTrusted {
                     Label("Accessibility permission is enabled.", systemImage: "checkmark.circle")
                         .foregroundStyle(.green)
@@ -111,9 +109,6 @@ struct PreferencesView: View {
                     Text(settingsOpenError)
                         .foregroundStyle(.red)
                 }
-            }
-
-            Section("Screen Recording access") {
                 if screenRecordingPermissions.isAuthorized {
                     Label("Screen Recording permission is enabled.", systemImage: "checkmark.circle")
                         .foregroundStyle(.green)
