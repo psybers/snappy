@@ -119,6 +119,9 @@ The user can create alignment guidelines while in measurement mode.
 - Guidelines should span the entire relevant monitor.
 - Guidelines remain visible after measurement mode is exited.
 - Hovering over a guideline allows the user to drag it to a new position.
+- Holding Command while dragging a guideline temporarily disables edge snapping and snap haptic feedback; releasing Command allows snapping again.
+- During dragging, guidelines snap to sustained visual edges near the grabbed point. Higher-contrast edges have a larger attraction and release distance. Use the selected visual edge tolerance, and reuse the frozen screen image or capture once per drag without overlays. Capture failure leaves dragging available without snapping.
+- Request trackpad haptic feedback when acquiring a snap, with an additional brief pulse for stronger edges. Public macOS APIs do not expose haptic intensity; feedback depends on trackpad support and system preferences. Do not repeatedly pulse while staying snapped to one edge.
 - Right-clicking a guideline removes it.
 
 Guidelines should be independent of persistent measurements.

@@ -349,11 +349,17 @@ protocol AnnotationSurfacePresenting: AnyObject {
     func presentAnnotations(_ groups: [DisplayAnnotations], preferences: AppPreferences)
     func setAnnotationHover(_ hit: AnnotationHit?, onDisplay displayID: String?)
     func setAnnotationMouseHandler(_ handler: AnnotationMouseHandling?)
+    func snappingCapture(for display: DisplayDescriptor) -> CapturedDisplayRegion?
+}
+
+extension AnnotationSurfacePresenting {
+    func snappingCapture(for display: DisplayDescriptor) -> CapturedDisplayRegion? { nil }
 }
 
 @MainActor
 final class AnnotationInteractionController: AnnotationMouseHandling {
     private struct Drag {
+        let token = UUID()
         let id: UUID
         let displayID: String
         let startLocal: Point2D
@@ -372,17 +378,42 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
     private var lastGlobalPointer: Point2D?
     private var globalMonitor: Any?
     private var localMonitor: Any?
+    private let snapCapturer: ScreenRegionCapturing
+    private let snapFeedback: @MainActor (Double) -> Void
+    private let commandHeld: @MainActor () -> Bool
+    private var snapCaptureTask: Task<Void, Never>?
+    private var snapImage: GuidelineSnapImage?
+    private var snappedEdge: GuidelineSnapImage.Edge?
+    private var latestDragPoint: Point2D?
+    private var lastFeedbackTime = Date.distantPast
 
     init(
         coordinator: MeasurementCoordinator,
         surface: AnnotationSurfacePresenting,
         preferencesStore: PreferencesStore,
-        currentMeasurement: @escaping MeasurementProvider
+        currentMeasurement: @escaping MeasurementProvider,
+        snapCapturer: ScreenRegionCapturing? = nil,
+        commandHeld: @escaping @MainActor () -> Bool = { NSEvent.modifierFlags.contains(.command) },
+        snapFeedback: @escaping @MainActor (Double) -> Void = { strength in
+            NSHapticFeedbackManager.defaultPerformer.perform(
+                .alignment, performanceTime: .now)
+            // Trackpad APIs expose no amplitude control. A strong snap gets
+            // a brief second pulse instead of claiming adjustable intensity.
+            if strength >= 0.65 {
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 70_000_000)
+                    NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                }
+            }
+        }
     ) {
         self.coordinator = coordinator
         self.surface = surface
         self.preferencesStore = preferencesStore
         self.currentMeasurement = currentMeasurement
+        self.snapCapturer = snapCapturer ?? ScreenCaptureKitRegionCapturer()
+        self.snapFeedback = snapFeedback
+        self.commandHeld = commandHeld
     }
 
     func start() {
@@ -426,6 +457,7 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
     }
 
     func stop() {
+        clearSnapping()
         cancellables.removeAll()
         if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
         if let localMonitor { NSEvent.removeMonitor(localMonitor) }
@@ -518,6 +550,10 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
 
     private func sessionChanged(_ session: MeasurementSession?) {
         groups = session?.displays ?? []
+        if let drag, annotation(id: drag.id, displayID: drag.displayID) == nil {
+            self.drag = nil
+            clearSnapping()
+        }
         surface.presentAnnotations(groups, preferences: preferencesStore.preferences)
         if drag == nil { refreshHover() }
     }
@@ -525,6 +561,7 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
     // MARK: Mouse handling
 
     func annotationMouseDown(displayID: String, at local: Point2D) {
+        clearSnapping()
         guard let hit = hit(at: local, displayID: displayID) else { return }
         switch hit {
         case .label(let id):
@@ -532,6 +569,10 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
         case .body(let id):
             guard let annotation = annotation(id: id, displayID: displayID) else { return }
             drag = Drag(id: id, displayID: displayID, startLocal: local, original: annotation.geometry)
+            if case .guideline = annotation.geometry,
+               let display = surface.connectedDisplays.first(where: { $0.id == displayID }) {
+                prepareSnapping(on: display)
+            }
         }
     }
 
@@ -541,24 +582,71 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
         else {
             return
         }
-        coordinator.updateAnnotationGeometry(
-            id: drag.id,
-            geometry: AnnotationEditing.moved(
+        latestDragPoint = local
+        var geometry = AnnotationEditing.moved(
                 drag.original,
                 dx: local.x - drag.startLocal.x,
                 dy: local.y - drag.startLocal.y,
                 within: display.logicalBounds.size
             )
-        )
+        if commandHeld() {
+            // Release any held edge without discarding the image, so snapping
+            // can resume as soon as Command is released during this drag.
+            snappedEdge = nil
+        } else if case .guideline(let axis, let position) = geometry, let snapImage {
+            let edge = snapImage.edge(axis: axis, position: position, pointer: local,
+                                      tolerance: preferencesStore.preferences.edgeTolerance.value,
+                                      holding: snappedEdge)
+            if let edge {
+                if (snappedEdge == nil || abs(snappedEdge!.position - edge.position) > 1),
+                   Date().timeIntervalSince(lastFeedbackTime) >= 0.1 {
+                    snapFeedback(edge.strength)
+                    lastFeedbackTime = Date()
+                }
+                geometry = .guideline(axis: axis, position: edge.position)
+            }
+            snappedEdge = edge
+        }
+        coordinator.updateAnnotationGeometry(id: drag.id, geometry: geometry)
     }
 
     func annotationMouseUp(displayID: String, at local: Point2D) {
         guard drag != nil else { return }
+        clearSnapping()
         drag = nil
         // mouseMoved monitors don't fire while dragging, so the cached pointer is stale.
         let location = NSEvent.mouseLocation
         lastGlobalPointer = Point2D(x: location.x, y: location.y)
         refreshHover()
+    }
+
+    private func clearSnapping() {
+        snapCaptureTask?.cancel()
+        snapCaptureTask = nil
+        snapImage = nil
+        snappedEdge = nil
+        latestDragPoint = nil
+        lastFeedbackTime = .distantPast
+    }
+
+    private func prepareSnapping(on display: DisplayDescriptor) {
+        if let capture = surface.snappingCapture(for: display) {
+            snapImage = GuidelineSnapImage(capture)
+            return
+        }
+        let token = drag?.token
+        snapCaptureTask = Task { [weak self] in
+            guard let self else { return }
+            let region = Rect2D(x: 0, y: 0, width: display.logicalBounds.size.width,
+                                height: display.logicalBounds.size.height)
+            guard let capture = try? await snapCapturer.capture(region: region, on: display),
+                  !Task.isCancelled, drag?.token == token,
+                  surface.connectedDisplays.contains(display) else { return }
+            snapImage = GuidelineSnapImage(capture)
+            if let latestDragPoint {
+                annotationMouseDragged(displayID: display.id, at: latestDragPoint)
+            }
+        }
     }
 
     func annotationRightMouseDown(displayID: String, at local: Point2D) {

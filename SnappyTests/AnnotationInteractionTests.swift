@@ -2,6 +2,87 @@ import XCTest
 
 @MainActor
 final class AnnotationInteractionTests: XCTestCase {
+    func testUnavailableOrLateCaptureDoesNotInterruptDragging() async throws {
+        let context = try XCTUnwrap(CGContext(data: nil, width: 1000, height: 600,
+            bitsPerComponent: 8, bytesPerRow: 4000, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 1000, height: 600))
+        context.setFillColor(CGColor(gray: 0, alpha: 1))
+        context.fill(CGRect(x: 500, y: 0, width: 500, height: 600))
+        let capture = CapturedDisplayRegion(image: try XCTUnwrap(context.makeImage()), displayID: "d1",
+            displayLocalBounds: Rect2D(x: 0, y: 0, width: 1000, height: 600))
+        for result in [Result<CapturedDisplayRegion, Error>.failure(ScreenCaptureError.permissionDenied),
+                       .success(capture)] {
+            let coordinator = MeasurementCoordinator()
+            session(coordinator)
+            let guideline = MeasurementAnnotation(displayID: "d1", geometry: .guideline(axis: .vertical, position: 450))
+            coordinator.addAnnotation(guideline)
+            let capturer = DelayedSnapCapturer(result: result)
+            var feedbackCount = 0
+            let controller = AnnotationInteractionController(coordinator: coordinator,
+                surface: StubSurface(displays: [display]), preferencesStore: .shared,
+                currentMeasurement: { nil }, snapCapturer: capturer, snapFeedback: { _ in feedbackCount += 1 })
+            controller.start()
+            controller.annotationMouseDown(displayID: "d1", at: Point2D(x: 450, y: 300))
+            controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 490, y: 300))
+            controller.annotationMouseUp(displayID: "d1", at: Point2D(x: 490, y: 300))
+            try await Task.sleep(nanoseconds: 60_000_000)
+            XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                           .guideline(axis: .vertical, position: 490))
+            XCTAssertEqual(feedbackCount, 0, "Released drags must ignore late captures")
+            controller.stop()
+        }
+    }
+
+    func testGuidelineSnapFeedbackOccursOnlyOnAcquisitionAndKeepsSnappedPosition() throws {
+        let context = try XCTUnwrap(CGContext(data: nil, width: 1000, height: 600,
+            bitsPerComponent: 8, bytesPerRow: 4000, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 1000, height: 600))
+        context.setFillColor(CGColor(gray: 0, alpha: 1))
+        context.fill(CGRect(x: 500, y: 0, width: 500, height: 600))
+        let coordinator = MeasurementCoordinator()
+        session(coordinator)
+        let guideline = MeasurementAnnotation(displayID: "d1", geometry: .guideline(axis: .vertical, position: 450))
+        coordinator.addAnnotation(guideline)
+        let surface = StubSurface(displays: [display])
+        surface.capture = CapturedDisplayRegion(image: try XCTUnwrap(context.makeImage()), displayID: "d1",
+            displayLocalBounds: Rect2D(x: 0, y: 0, width: 1000, height: 600))
+        var feedback: [Double] = []
+        var commandHeld = false
+        let preferences = PreferencesStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        let controller = AnnotationInteractionController(coordinator: coordinator, surface: surface,
+            preferencesStore: preferences, currentMeasurement: { nil },
+            commandHeld: { commandHeld }, snapFeedback: { feedback.append($0) })
+        controller.start()
+        defer { controller.stop() }
+        controller.annotationMouseDown(displayID: "d1", at: Point2D(x: 450, y: 300))
+        for x in [490.0, 492, 494] {
+            controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: x, y: 300))
+            XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                           .guideline(axis: .vertical, position: 500))
+        }
+        XCTAssertEqual(feedback, [1])
+        commandHeld = true
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 492, y: 300))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .guideline(axis: .vertical, position: 492))
+        XCTAssertEqual(feedback, [1], "Command-drag must not produce snap feedback")
+        commandHeld = false
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 492, y: 300))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .guideline(axis: .vertical, position: 500))
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 470, y: 300))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .guideline(axis: .vertical, position: 470))
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 490, y: 300))
+        controller.annotationMouseUp(displayID: "d1", at: Point2D(x: 490, y: 300))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .guideline(axis: .vertical, position: 500))
+    }
+
     private let display = DisplayDescriptor(
         id: "d1",
         logicalBounds: Rect2D(x: -1000, y: 0, width: 1000, height: 600),
@@ -145,7 +226,20 @@ final class AnnotationInteractionTests: XCTestCase {
 }
 
 @MainActor
+private final class DelayedSnapCapturer: ScreenRegionCapturing {
+    let result: Result<CapturedDisplayRegion, Error>
+    init(result: Result<CapturedDisplayRegion, Error>) { self.result = result }
+    func capture(region: Rect2D, on display: DisplayDescriptor) async throws -> CapturedDisplayRegion {
+        // Deliberately finish even when canceled, to exercise stale-result rejection.
+        try? await Task.sleep(nanoseconds: 30_000_000)
+        return try result.get()
+    }
+}
+
+@MainActor
 private final class StubSurface: AnnotationSurfacePresenting {
+    var capture: CapturedDisplayRegion?
+    func snappingCapture(for display: DisplayDescriptor) -> CapturedDisplayRegion? { capture }
     let connectedDisplays: [DisplayDescriptor]
     init(displays: [DisplayDescriptor]) { connectedDisplays = displays }
     func presentAnnotations(_ groups: [DisplayAnnotations], preferences: AppPreferences) {}

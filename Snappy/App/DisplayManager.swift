@@ -51,6 +51,13 @@ final class DisplayManager: ObservableObject, MeasurementDisplayProviding, Annot
 
     private var overlayWindows: [String: ScreenOverlayPanel] = [:]
 
+    func snappingCapture(for display: DisplayDescriptor) -> CapturedDisplayRegion? {
+        guard let image = overlayWindows[display.id]?.annotationView?.frozenImage else { return nil }
+        return CapturedDisplayRegion(image: image, displayID: display.id,
+            displayLocalBounds: Rect2D(x: 0, y: 0, width: display.logicalBounds.size.width,
+                                       height: display.logicalBounds.size.height))
+    }
+
     func showToleranceToast(_ settings: EdgeToleranceSettings, at pointer: Point2D) {
         guard let display = connectedDisplays.first(where: { $0.logicalBounds.contains(pointer) }) else { return }
         for panel in overlayWindows.values { panel.annotationView?.setToast(nil) }

@@ -54,6 +54,10 @@ Menu: Preferences..., Restore Last Session, Clear Annotations (no confirmation),
 
 Edge tolerance levels are Zero (fixed at 0), Low (4), Medium (8, the default), and High (16). Preferences lets you override Low, Medium, and High with ordered values from 1–100 and choose the active level. These settings persist across launches. Tolerance is the maximum per-channel RGB difference ignored by visual edge detection: higher values ignore more subtle color changes. Changes rescan the current measurement without moving the pointer and show a brief toast at the bottom center of the pointer's monitor. Accessibility bounds are unaffected.
 
+Dragging a blue guideline snaps it to nearby visual edges around the grabbed point. Hold Command while dragging to temporarily disable snapping and snap haptic feedback; release Command to resume snapping. Higher-contrast edges attract from farther away (up to 14 points) and hold longer before releasing. Snapping respects the selected edge tolerance and uses the frozen screen while measuring, or one overlay-free capture per drag otherwise. If capture is unavailable, guidelines move freely. Sustained contrast across nearby scanlines filters isolated pixels; textured content can still produce imperfect snaps.
+
+On supported Force Touch trackpads, acquiring a snap requests one alignment haptic pulse, or two brief pulses for stronger edges. Feedback does not continuously repeat while a line stays snapped. Public macOS APIs provide preset patterns rather than intensity control, so stronger feedback is represented by the extra pulse and remains subject to hardware and system preferences.
+
 ## Session behaviour
 
 - Sessions live in `~/Library/Application Support/Snappy/`: `active-session.json` (saved shortly after every change, on Escape, and on quit) and `last-session.json` (last non-empty snapshot). Writes are atomic; corrupt files are moved to `*.corrupt.json`; newer schema versions are rejected without deleting them.
