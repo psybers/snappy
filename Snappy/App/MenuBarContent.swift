@@ -2,11 +2,19 @@ import AppKit
 import SwiftUI
 
 struct MenuBarContent: View {
+    @Environment(\.openSettings) private var openSettings
     @ObservedObject private var persistence = SessionPersistenceController.shared
     @ObservedObject private var coordinator = MeasurementCoordinator.shared
 
     var body: some View {
-        SettingsLink {
+        Button {
+            // Wait for menu tracking to finish before activating this menu-bar app.
+            DispatchQueue.main.async {
+                NSApp.activate(ignoringOtherApps: true)
+                openSettings()
+                PreferencesWindowPresenter.shared.focus()
+            }
+        } label: {
             Label("Preferences...", systemImage: "gearshape")
         }
 

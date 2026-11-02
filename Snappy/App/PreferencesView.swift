@@ -156,6 +156,7 @@ struct PreferencesView: View {
         }
         .frame(width: 560, height: min(800, (NSScreen.main?.visibleFrame.height ?? 900) - 100))
         .navigationTitle("Snappy Preferences")
+        .background(PreferencesWindowFocus())
         .onAppear {
             accessibilityPermissions.refresh()
             inputMonitor.refreshKeyboardPermission()
@@ -242,6 +243,39 @@ struct PreferencesView: View {
             return
         }
         settingsOpenError = nil
+    }
+}
+
+@MainActor
+final class PreferencesWindowPresenter {
+    static let shared = PreferencesWindowPresenter()
+    weak var window: NSWindow?
+
+    func focus() {
+        guard let window else { return }
+        NSApp.activate(ignoringOtherApps: true)
+        if window.isMiniaturized { window.deminiaturize(nil) }
+        window.makeKeyAndOrderFront(nil)
+    }
+}
+
+/// Register the actual settings window so the menu can focus it on every click,
+/// even when SwiftUI reuses the existing view without another appearance callback.
+private struct PreferencesWindowFocus: NSViewRepresentable {
+    func makeNSView(context: Context) -> FocusView { FocusView() }
+    func updateNSView(_ nsView: FocusView, context: Context) {}
+
+    final class FocusView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard let window else { return }
+            PreferencesWindowPresenter.shared.window = window
+            DispatchQueue.main.async { [weak window] in
+                guard let window else { return }
+                guard PreferencesWindowPresenter.shared.window === window else { return }
+                PreferencesWindowPresenter.shared.focus()
+            }
+        }
     }
 }
 
