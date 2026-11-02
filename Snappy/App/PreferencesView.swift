@@ -149,7 +149,7 @@ struct PreferencesView: View {
         }
         .padding(20)
         }
-        .frame(width: 560, height: min(800, (NSScreen.main?.visibleFrame.height ?? 900) - 100))
+        .frame(width: 560, height: min(720, (NSScreen.main?.visibleFrame.height ?? 820) - 100))
         .navigationTitle("Snappy Preferences")
         .background(PreferencesWindowFocus())
         .onAppear {
