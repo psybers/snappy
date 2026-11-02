@@ -57,7 +57,7 @@ enum AnnotationLayout {
         }.sorted()
 
         let displaySize = axis == .horizontal ? displayBounds.size.height : displayBounds.size.width
-        let edgeOffset = 30.0 // Distance from left edge for horizontal, top edge for vertical
+        let edgeOffset = 10.0 // Distance from left edge for horizontal, top edge for vertical
         let labelSpacing = 5.0 // Minimum spacing between labels
 
         for i in 0...positions.count {
