@@ -10,6 +10,7 @@ The easiest way to install is via Homebrew:
 
 ```sh
 brew trust --cask psybers/homebrew-tap/snappy
+brew install --cask psybers/homebrew-tap/snappy
 xattr -d com.apple.quarantine /Applications/Snappy.app
 ```
 
