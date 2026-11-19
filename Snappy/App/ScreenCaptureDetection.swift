@@ -380,21 +380,14 @@ final class ElementDetectionService: ElementDetecting {
 
         if var extentDetector {
             if let edgeTolerance { extentDetector.edgeThreshold = edgeTolerance() }
-            let pointer = DisplayCoordinateMapper.globalToDisplayLocal(
-                globalPointer,
-                displayBounds: display.logicalBounds
-            )
-            return extentDetector.detect(in: captured, pointer: pointer, display: display, pixels: pixels)
+            return extentDetector.detect(in: captured, pointer: localPointer, display: display, pixels: pixels)
                 .map(ElementDetectionResult.detected) ?? .unavailable(.noConfidentBoundary)
         }
 
         do {
             return try visualDetector.detect(
                 in: captured,
-                pointer: DisplayCoordinateMapper.globalToDisplayLocal(
-                    globalPointer,
-                    displayBounds: display.logicalBounds
-                ),
+                pointer: localPointer,
                 display: display
             )
             .first

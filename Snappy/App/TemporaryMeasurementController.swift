@@ -53,16 +53,22 @@ final class TemporaryMeasurementController {
             .store(in: &cancellables)
     }
 
-    func stop() {
+    /// Drops all detection state so the next tracking update starts fresh.
+    private func resetDetectionState() {
+        isShowingCrosshair = false
         detectionTask?.cancel()
         detectionTask = nil
         detectionTaskID = nil
-        cancellables.removeAll()
-        isShowingCrosshair = false
+        pointerGeneration += 1
         lastResult = nil
         lastPointer = nil
         latestPointer = nil
-        pointerGeneration += 1
+        lastDetectedCandidate = nil
+    }
+
+    func stop() {
+        cancellables.removeAll()
+        resetDetectionState()
         displayManager.clearTemporaryMeasurements()
     }
 
@@ -75,15 +81,7 @@ final class TemporaryMeasurementController {
             displayManager.unfreezeScreens()
         }
         guard case .tracking(let pointer, let shiftHeld) = mode else {
-            isShowingCrosshair = false
-            detectionTask?.cancel()
-            detectionTask = nil
-            detectionTaskID = nil
-            lastResult = nil
-            lastPointer = nil
-            latestPointer = nil
-            lastDetectedCandidate = nil
-            pointerGeneration += 1
+            resetDetectionState()
             displayManager.clearTemporaryMeasurements()
             return
         }

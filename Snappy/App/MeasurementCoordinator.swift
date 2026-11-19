@@ -203,20 +203,14 @@ final class MeasurementCoordinator: ObservableObject {
 
     func keyDown(key: String, keyCode: UInt16, modifiers: Set<ShortcutModifier>) {
         guard mode.isActive else { return }
-        if modifiers.isEmpty {
-            switch key.lowercased() {
-            case "t": toleranceAdjustments.send(0); return
-            case "-": toleranceAdjustments.send(-1); return
-            case "=": toleranceAdjustments.send(1); return
-            default: break
-            }
-        }
-        if modifiers == [.option] {
-            switch key.lowercased() {
-            case "-": temporaryToleranceAdjustments.send(-1); return
-            case "=": temporaryToleranceAdjustments.send(1); return
-            default: break
-            }
+        let character = key.lowercased()
+        switch (modifiers, character) {
+        case ([], "t"): toleranceAdjustments.send(0); return
+        case ([], "-"): toleranceAdjustments.send(-1); return
+        case ([], "="): toleranceAdjustments.send(1); return
+        case ([.option], "-"): temporaryToleranceAdjustments.send(-1); return
+        case ([.option], "="): temporaryToleranceAdjustments.send(1); return
+        default: break
         }
         if keyCode == 53 {
             stop()
@@ -233,7 +227,6 @@ final class MeasurementCoordinator: ObservableObject {
             return
         }
         guard let pointer = mode.pointer else { return }
-        let character = key.lowercased()
         if character == "h", modifiers.isEmpty {
             commands.send(.pinHorizontal(at: pointer))
         } else if character == "v", modifiers.isEmpty {
