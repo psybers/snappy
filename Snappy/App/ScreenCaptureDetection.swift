@@ -161,7 +161,7 @@ struct GuidelineSnapImage {
         var radius: Double { 3 + 11 * strength }
     }
 
-    /// Finds sustained transitions near the grabbed part of the guideline.
+    /// Finds sustained transitions near the grabbed part of the annotation.
     /// Contrast determines both attraction distance and the release distance.
     func edge(axis: AnnotationAxis, position: Double, pointer: Point2D,
               tolerance: Int, holding previous: Edge?) -> Edge? {

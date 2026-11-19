@@ -93,6 +93,7 @@ The user can turn the current measurement indicators into persistent annotations
 - The measurement remains at its current position and retains its dimensions.
 - Hovering over the measurement allows the user to drag it.
 - Dragging changes its position without changing its length or orientation.
+- While dragging, the measurement snaps to sustained visual edges near the grabbed point (position coordinate, plus whichever end of the bar lands on a better edge along its length; same rules as guidelines below); holding Command disables snapping.
 
 ### Vertical measurement
 
@@ -100,6 +101,7 @@ The user can turn the current measurement indicators into persistent annotations
 - The measurement remains at its current position and retains its dimensions.
 - Hovering over the measurement allows the user to drag it.
 - Dragging changes its position without changing its length or orientation.
+- While dragging, the measurement snaps to sustained visual edges near the grabbed point (position coordinate, plus whichever end of the bar lands on a better edge along its length; same rules as guidelines below); holding Command disables snapping.
 
 ### Deleting measurements
 
@@ -121,6 +123,7 @@ The user can create alignment guidelines while in measurement mode.
 - Hovering over a guideline allows the user to drag it to a new position.
 - Holding Command while dragging a guideline temporarily disables edge snapping and snap haptic feedback; releasing Command allows snapping again.
 - During dragging, guidelines snap to sustained visual edges near the grabbed point. Higher-contrast edges have a larger attraction and release distance. Use the selected visual edge tolerance, and reuse the frozen screen image or capture once per drag without overlays. Capture failure leaves dragging available without snapping.
+- Dragged guidelines and measurements also snap to existing guidelines and pinned measurement lines on the same display, but only where the dragged annotation actually crosses the target line.
 - Request trackpad haptic feedback when acquiring a snap, with an additional brief pulse for stronger edges. Public macOS APIs do not expose haptic intensity; feedback depends on trackpad support and system preferences. Do not repeatedly pulse while staying snapped to one edge.
 - Right-clicking a guideline removes it.
 

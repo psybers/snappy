@@ -383,7 +383,7 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
     private let commandHeld: @MainActor () -> Bool
     private var snapCaptureTask: Task<Void, Never>?
     private var snapImage: GuidelineSnapImage?
-    private var snappedEdge: GuidelineSnapImage.Edge?
+    private var snappedEdges: [AnnotationAxis: GuidelineSnapImage.Edge] = [:]
     private var latestDragPoint: Point2D?
     private var lastFeedbackTime = Date.distantPast
 
@@ -569,9 +569,13 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
         case .body(let id):
             guard let annotation = annotation(id: id, displayID: displayID) else { return }
             drag = Drag(id: id, displayID: displayID, startLocal: local, original: annotation.geometry)
-            if case .guideline = annotation.geometry,
-               let display = surface.connectedDisplays.first(where: { $0.id == displayID }) {
-                prepareSnapping(on: display)
+            switch annotation.geometry {
+            case .guideline, .horizontalMeasurement, .verticalMeasurement:
+                if let display = surface.connectedDisplays.first(where: { $0.id == displayID }) {
+                    prepareSnapping(on: display)
+                }
+            case .rectangle:
+                break
             }
         }
     }
@@ -590,22 +594,16 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
                 within: display.logicalBounds.size
             )
         if commandHeld() {
-            // Release any held edge without discarding the image, so snapping
+            // Release any held edges without discarding the image, so snapping
             // can resume as soon as Command is released during this drag.
-            snappedEdge = nil
-        } else if case .guideline(let axis, let position) = geometry, let snapImage {
-            let edge = snapImage.edge(axis: axis, position: position, pointer: local,
-                                      tolerance: preferencesStore.preferences.edgeTolerance.value,
-                                      holding: snappedEdge)
-            if let edge {
-                if (snappedEdge == nil || abs(snappedEdge!.position - edge.position) > 1),
-                   Date().timeIntervalSince(lastFeedbackTime) >= 0.1 {
-                    snapFeedback(edge.strength)
-                    lastFeedbackTime = Date()
-                }
-                geometry = .guideline(axis: axis, position: edge.position)
-            }
-            snappedEdge = edge
+            snappedEdges.removeAll()
+        } else if let snapImage {
+            let siblings = groups.first(where: { $0.display.id == displayID })?
+                .annotations.filter { $0.id != drag.id } ?? []
+            geometry = applySnapping(
+                to: geometry, pointer: local, image: snapImage, siblings: siblings,
+                size: display.logicalBounds.size
+            )
         }
         coordinator.updateAnnotationGeometry(id: drag.id, geometry: geometry)
     }
@@ -620,11 +618,220 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
         refreshHover()
     }
 
+    /// Snaps a dragged annotation to sustained visual edges in the frozen
+    /// capture and to lines already on the display (guidelines and pinned
+    /// measurements). Guidelines snap their position coordinate; pinned
+    /// measurements snap their position coordinate and whichever end of the
+    /// bar lands on a better edge along its length, so either end of a
+    /// horizontal bar can align to a vertical edge and either end of a
+    /// vertical bar to a horizontal edge.
+    private func applySnapping(
+        to geometry: AnnotationGeometry,
+        pointer local: Point2D,
+        image: GuidelineSnapImage,
+        siblings: [MeasurementAnnotation],
+        size: Size2D
+    ) -> AnnotationGeometry {
+        let tolerance = preferencesStore.preferences.edgeTolerance.value
+        func edge(_ axis: AnnotationAxis, _ position: Double) -> GuidelineSnapImage.Edge? {
+            image.edge(axis: axis, position: position, pointer: local,
+                       tolerance: tolerance, holding: snappedEdges[axis])
+        }
+        func score(_ found: GuidelineSnapImage.Edge, _ position: Double) -> Double {
+            abs(found.position - position) / found.radius - found.strength * 0.2
+        }
+        /// Every snap candidate for one coordinate: visual edges from the
+        /// frozen capture plus pinned lines and guidelines on this display.
+        func snapCandidates(axis: AnnotationAxis, position: Double) -> [GuidelineSnapImage.Edge] {
+            var result = annotationSnapEdges(
+                axis: axis, position: position, geometry: geometry,
+                siblings: siblings, size: size
+            )
+            if let found = edge(axis, position) { result.append(found) }
+            return result
+        }
+        /// Evaluates every candidate end coordinate and returns the strongest
+        /// snap, keeping track of which end it belongs to. All lookups must
+        /// run before `record` updates the held edges.
+        func bestEnd(
+            _ axis: AnnotationAxis,
+            candidates: [(position: Double, isStart: Bool)]
+        ) -> (edge: GuidelineSnapImage.Edge, isStart: Bool)? {
+            var best: (edge: GuidelineSnapImage.Edge, score: Double, isStart: Bool)?
+            for candidate in candidates {
+                for found in snapCandidates(axis: axis, position: candidate.position) {
+                    let value = score(found, candidate.position)
+                    if best == nil || value < best!.score {
+                        best = (found, value, candidate.isStart)
+                    }
+                }
+            }
+            return best.map { ($0.edge, $0.isStart) }
+        }
+        func record(_ axis: AnnotationAxis, _ found: GuidelineSnapImage.Edge?) {
+            if let found {
+                let previous = snappedEdges[axis]
+                if (previous == nil || abs(previous!.position - found.position) > 1),
+                   Date().timeIntervalSince(lastFeedbackTime) >= 0.1 {
+                    snapFeedback(found.strength)
+                    lastFeedbackTime = Date()
+                }
+            }
+            snappedEdges[axis] = found
+        }
+        func clamped(_ value: Double, _ upper: Double) -> Double {
+            min(max(value, 0), max(upper, 0))
+        }
+
+        switch geometry {
+        case .guideline(let axis, let position):
+            let pick = snapCandidates(axis: axis, position: position)
+                .min { score($0, position) < score($1, position) }
+            record(axis, pick)
+            let snapped = pick?.position ?? position
+            return .guideline(
+                axis: axis,
+                position: axis == .horizontal
+                    ? clamped(snapped, size.height)
+                    : clamped(snapped, size.width)
+            )
+        case .horizontalMeasurement(let start, let length):
+            let yPick = snapCandidates(axis: .horizontal, position: start.y)
+                .min { score($0, start.y) < score($1, start.y) }
+            let xPick = bestEnd(.vertical, candidates: [
+                (position: start.x, isStart: true),
+                (position: start.x + length, isStart: false),
+            ])
+            record(.horizontal, yPick)
+            record(.vertical, xPick?.edge)
+            var x = start.x
+            if let pick = xPick {
+                x = pick.isStart ? pick.edge.position : pick.edge.position - length
+            }
+            return .horizontalMeasurement(
+                start: Point2D(
+                    x: clamped(x, size.width - length),
+                    y: clamped(yPick?.position ?? start.y, size.height)
+                ),
+                length: length
+            )
+        case .verticalMeasurement(let start, let length):
+            let xPick = snapCandidates(axis: .vertical, position: start.x)
+                .min { score($0, start.x) < score($1, start.x) }
+            let yPick = bestEnd(.horizontal, candidates: [
+                (position: start.y, isStart: true),
+                (position: start.y + length, isStart: false),
+            ])
+            record(.vertical, xPick)
+            record(.horizontal, yPick?.edge)
+            var y = start.y
+            if let pick = yPick {
+                y = pick.isStart ? pick.edge.position : pick.edge.position - length
+            }
+            return .verticalMeasurement(
+                start: Point2D(
+                    x: clamped(xPick?.position ?? start.x, size.width),
+                    y: clamped(y, size.height - length)
+                ),
+                length: length
+            )
+        case .rectangle:
+            return geometry
+        }
+    }
+
+    /// Fixed strength for line-to-line snaps: an exact guideline or pinned
+    /// bar beats weak texture edges but yields to strong visual edges.
+    private static let annotationSnapStrength = 0.65
+    private static let snapOverlapEpsilon = 1.0
+
+    /// Lines already drawn on the display (guidelines and pinned
+    /// measurements) near `position` on `axis` that the dragged annotation
+    /// actually crosses. Rectangles are regions, not lines, and are skipped.
+    private func annotationSnapEdges(
+        axis: AnnotationAxis,
+        position: Double,
+        geometry: AnnotationGeometry,
+        siblings: [MeasurementAnnotation],
+        size: Size2D
+    ) -> [GuidelineSnapImage.Edge] {
+        let attraction = GuidelineSnapImage.Edge(
+            position: position, strength: Self.annotationSnapStrength
+        ).radius
+        let dragged = Self.draggedRange(geometry, axis: axis)
+        var edges: [GuidelineSnapImage.Edge] = []
+        for sibling in siblings {
+            guard let line = Self.snapLine(for: sibling.geometry, axis: axis, size: size),
+                  abs(line.position - position) <= attraction
+            else { continue }
+            if let dragged, !Self.rangesOverlap(dragged, line.range) { continue }
+            edges.append(GuidelineSnapImage.Edge(
+                position: line.position, strength: Self.annotationSnapStrength
+            ))
+        }
+        return edges
+    }
+
+    /// A candidate target line: its fixed coordinate and its extent along
+    /// the line direction, in display-local coordinates.
+    private static func snapLine(
+        for geometry: AnnotationGeometry,
+        axis: AnnotationAxis,
+        size: Size2D
+    ) -> (position: Double, range: (lo: Double, hi: Double))? {
+        switch geometry {
+        case .guideline(let gAxis, let position):
+            if axis == .vertical, gAxis == .vertical { return (position, (0, size.height)) }
+            if axis == .horizontal, gAxis == .horizontal { return (position, (0, size.width)) }
+            return nil
+        case .verticalMeasurement(let start, let length):
+            guard axis == .vertical else { return nil }
+            return (start.x, (min(start.y, start.y + length), max(start.y, start.y + length)))
+        case .horizontalMeasurement(let start, let length):
+            guard axis == .horizontal else { return nil }
+            return (start.y, (min(start.x, start.x + length), max(start.x, start.x + length)))
+        case .rectangle:
+            return nil
+        }
+    }
+
+    /// The dragged annotation's extent along a target line's direction, used
+    /// to decide whether the line visually crosses it. `nil` means the
+    /// annotation spans the whole display (a guideline), so it always crosses.
+    private static func draggedRange(
+        _ geometry: AnnotationGeometry,
+        axis: AnnotationAxis
+    ) -> (lo: Double, hi: Double)? {
+        switch geometry {
+        case .guideline:
+            return nil
+        case .horizontalMeasurement(let start, let length):
+            if axis == .horizontal {
+                return (min(start.x, start.x + length), max(start.x, start.x + length))
+            }
+            return (start.y, start.y)
+        case .verticalMeasurement(let start, let length):
+            if axis == .vertical {
+                return (min(start.y, start.y + length), max(start.y, start.y + length))
+            }
+            return (start.x, start.x)
+        case .rectangle:
+            return nil
+        }
+    }
+
+    private static func rangesOverlap(
+        _ a: (lo: Double, hi: Double),
+        _ b: (lo: Double, hi: Double)
+    ) -> Bool {
+        a.lo <= b.hi + snapOverlapEpsilon && a.hi >= b.lo - snapOverlapEpsilon
+    }
+
     private func clearSnapping() {
         snapCaptureTask?.cancel()
         snapCaptureTask = nil
         snapImage = nil
-        snappedEdge = nil
+        snappedEdges = [:]
         latestDragPoint = nil
         lastFeedbackTime = .distantPast
     }

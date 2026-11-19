@@ -83,6 +83,193 @@ final class AnnotationInteractionTests: XCTestCase {
                        .guideline(axis: .vertical, position: 500))
     }
 
+    func testVerticalMeasurementSnapsToVerticalEdgeAndCommandDisables() throws {
+        let context = try XCTUnwrap(CGContext(data: nil, width: 1000, height: 600,
+            bitsPerComponent: 8, bytesPerRow: 4000, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 1000, height: 600))
+        context.setFillColor(CGColor(gray: 0, alpha: 1))
+        context.fill(CGRect(x: 500, y: 0, width: 500, height: 600))
+        let coordinator = MeasurementCoordinator()
+        session(coordinator)
+        let measurement = MeasurementAnnotation(
+            displayID: "d1",
+            geometry: .verticalMeasurement(start: Point2D(x: 450, y: 100), length: 200)
+        )
+        coordinator.addAnnotation(measurement)
+        let surface = StubSurface(displays: [display])
+        surface.capture = CapturedDisplayRegion(image: try XCTUnwrap(context.makeImage()), displayID: "d1",
+            displayLocalBounds: Rect2D(x: 0, y: 0, width: 1000, height: 600))
+        var feedback: [Double] = []
+        var commandHeld = false
+        let preferences = PreferencesStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        let controller = AnnotationInteractionController(coordinator: coordinator, surface: surface,
+            preferencesStore: preferences, currentMeasurement: { nil },
+            commandHeld: { commandHeld }, snapFeedback: { feedback.append($0) })
+        controller.start()
+        defer { controller.stop() }
+        controller.annotationMouseDown(displayID: "d1", at: Point2D(x: 452, y: 200))
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 492, y: 200))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .verticalMeasurement(start: Point2D(x: 500, y: 100), length: 200))
+        XCTAssertFalse(feedback.isEmpty)
+        commandHeld = true
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 470, y: 200))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .verticalMeasurement(start: Point2D(x: 468, y: 100), length: 200))
+        commandHeld = false
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 492, y: 200))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .verticalMeasurement(start: Point2D(x: 500, y: 100), length: 200))
+        controller.annotationMouseUp(displayID: "d1", at: Point2D(x: 492, y: 200))
+    }
+
+    func testHorizontalMeasurementSnapsToHorizontalEdge() throws {
+        let context = try XCTUnwrap(CGContext(data: nil, width: 1000, height: 600,
+            bitsPerComponent: 8, bytesPerRow: 4000, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 1000, height: 600))
+        context.setFillColor(CGColor(gray: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 300, width: 1000, height: 300))
+        let coordinator = MeasurementCoordinator()
+        session(coordinator)
+        let measurement = MeasurementAnnotation(
+            displayID: "d1",
+            geometry: .horizontalMeasurement(start: Point2D(x: 100, y: 280), length: 200)
+        )
+        coordinator.addAnnotation(measurement)
+        let surface = StubSurface(displays: [display])
+        surface.capture = CapturedDisplayRegion(image: try XCTUnwrap(context.makeImage()), displayID: "d1",
+            displayLocalBounds: Rect2D(x: 0, y: 0, width: 1000, height: 600))
+        let preferences = PreferencesStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        let controller = AnnotationInteractionController(coordinator: coordinator, surface: surface,
+            preferencesStore: preferences, currentMeasurement: { nil }, snapFeedback: { _ in })
+        controller.start()
+        defer { controller.stop() }
+        controller.annotationMouseDown(displayID: "d1", at: Point2D(x: 200, y: 282))
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 200, y: 312))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .horizontalMeasurement(start: Point2D(x: 100, y: 300), length: 200))
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 200, y: 502))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .horizontalMeasurement(start: Point2D(x: 100, y: 500), length: 200))
+        controller.annotationMouseUp(displayID: "d1", at: Point2D(x: 200, y: 502))
+    }
+
+    func testHorizontalMeasurementSnapsEitherEnd() throws {
+        let context = try XCTUnwrap(CGContext(data: nil, width: 1000, height: 600,
+            bitsPerComponent: 8, bytesPerRow: 4000, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 1000, height: 600))
+        context.setFillColor(CGColor(gray: 0, alpha: 1))
+        context.fill(CGRect(x: 500, y: 0, width: 500, height: 600))
+        let coordinator = MeasurementCoordinator()
+        session(coordinator)
+        // Ends at x=320 and x=520; the vertical edge sits at x=500.
+        let measurement = MeasurementAnnotation(
+            displayID: "d1",
+            geometry: .horizontalMeasurement(start: Point2D(x: 320, y: 280), length: 200)
+        )
+        coordinator.addAnnotation(measurement)
+        let surface = StubSurface(displays: [display])
+        surface.capture = CapturedDisplayRegion(image: try XCTUnwrap(context.makeImage()), displayID: "d1",
+            displayLocalBounds: Rect2D(x: 0, y: 0, width: 1000, height: 600))
+        let preferences = PreferencesStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        let controller = AnnotationInteractionController(coordinator: coordinator, surface: surface,
+            preferencesStore: preferences, currentMeasurement: { nil }, snapFeedback: { _ in })
+        controller.start()
+        defer { controller.stop() }
+        controller.annotationMouseDown(displayID: "d1", at: Point2D(x: 350, y: 282))
+        // Drag left so the right end (x=510) is near the edge while the
+        // left end (x=310) is far from any edge.
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 340, y: 282))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .horizontalMeasurement(start: Point2D(x: 300, y: 280), length: 200))
+        controller.annotationMouseUp(displayID: "d1", at: Point2D(x: 340, y: 282))
+    }
+
+    func testVerticalMeasurementSnapsTopEnd() throws {
+        let context = try XCTUnwrap(CGContext(data: nil, width: 1000, height: 600,
+            bitsPerComponent: 8, bytesPerRow: 4000, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 1000, height: 600))
+        context.setFillColor(CGColor(gray: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 300, width: 1000, height: 300))
+        let coordinator = MeasurementCoordinator()
+        session(coordinator)
+        // Ends at y=100 and y=300; the horizontal edge sits at y=300.
+        let measurement = MeasurementAnnotation(
+            displayID: "d1",
+            geometry: .verticalMeasurement(start: Point2D(x: 100, y: 100), length: 200)
+        )
+        coordinator.addAnnotation(measurement)
+        let surface = StubSurface(displays: [display])
+        surface.capture = CapturedDisplayRegion(image: try XCTUnwrap(context.makeImage()), displayID: "d1",
+            displayLocalBounds: Rect2D(x: 0, y: 0, width: 1000, height: 600))
+        let preferences = PreferencesStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        let controller = AnnotationInteractionController(coordinator: coordinator, surface: surface,
+            preferencesStore: preferences, currentMeasurement: { nil }, snapFeedback: { _ in })
+        controller.start()
+        defer { controller.stop() }
+        controller.annotationMouseDown(displayID: "d1", at: Point2D(x: 102, y: 150))
+        // Drag up so the top end (y=310) is near the edge while the bottom
+        // end (y=110) is far from any edge.
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 102, y: 160))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .verticalMeasurement(start: Point2D(x: 100, y: 100), length: 200))
+        controller.annotationMouseUp(displayID: "d1", at: Point2D(x: 102, y: 160))
+    }
+
+    func testMeasurementSnapsToExistingLinesItCrosses() throws {
+        // Blank capture: no visual edges, only pinned lines can snap.
+        let context = try XCTUnwrap(CGContext(data: nil, width: 1000, height: 600,
+            bitsPerComponent: 8, bytesPerRow: 4000, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 1000, height: 600))
+        let coordinator = MeasurementCoordinator()
+        session(coordinator)
+        // Vertical guideline at x=500 spans the display and always overlaps.
+        coordinator.addAnnotation(MeasurementAnnotation(
+            displayID: "d1", geometry: .guideline(axis: .vertical, position: 500)))
+        // Vertical bar at x=512 spanning y=400...500 is nearer the dragged
+        // end but does not cross the bar, so it must be ignored.
+        coordinator.addAnnotation(MeasurementAnnotation(
+            displayID: "d1",
+            geometry: .verticalMeasurement(start: Point2D(x: 512, y: 400), length: 100)))
+        // Horizontal bar at y=300 overlapping the dragged bar's x-range;
+        // dragging down onto it must snap the dragged bar's height to y=300.
+        coordinator.addAnnotation(MeasurementAnnotation(
+            displayID: "d1",
+            geometry: .horizontalMeasurement(start: Point2D(x: 350, y: 300), length: 200)))
+        let dragged = MeasurementAnnotation(
+            displayID: "d1",
+            geometry: .horizontalMeasurement(start: Point2D(x: 320, y: 280), length: 200)
+        )
+        coordinator.addAnnotation(dragged)
+        let surface = StubSurface(displays: [display])
+        surface.capture = CapturedDisplayRegion(image: try XCTUnwrap(context.makeImage()), displayID: "d1",
+            displayLocalBounds: Rect2D(x: 0, y: 0, width: 1000, height: 600))
+        let preferences = PreferencesStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        let controller = AnnotationInteractionController(coordinator: coordinator, surface: surface,
+            preferencesStore: preferences, currentMeasurement: { nil }, snapFeedback: { _ in })
+        controller.start()
+        defer { controller.stop() }
+        controller.annotationMouseDown(displayID: "d1", at: Point2D(x: 350, y: 282))
+        // Ends move to x=310 and x=510 and the bar drops to y=310. The right
+        // end snaps to the guideline at x=500 (start.x becomes 300), the
+        // height snaps onto the horizontal bar at y=300, and the nearer
+        // vertical bar at x=512 is ignored because it never crosses y=310.
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 340, y: 312))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[3].geometry,
+                       .horizontalMeasurement(start: Point2D(x: 300, y: 300), length: 200))
+        controller.annotationMouseUp(displayID: "d1", at: Point2D(x: 340, y: 312))
+    }
+
     private let display = DisplayDescriptor(
         id: "d1",
         logicalBounds: Rect2D(x: -1000, y: 0, width: 1000, height: 600),
