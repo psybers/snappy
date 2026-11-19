@@ -173,6 +173,92 @@ final class SessionPersistenceTests: XCTestCase {
         XCTAssertEqual(result[0].annotations[0].displayID, "b")
     }
 
+    func testSaveRejectsAnnotationAssignedToWrongDisplay() {
+        let store = SessionStore(directory: dir)
+        var s = session(display("a"))
+        s.displays[0].annotations[0].displayID = "b"
+        XCTAssertThrowsError(try store.save(s, to: .active)) {
+            guard case .invalidContent = $0 as? SessionStoreError else {
+                return XCTFail("expected invalidContent, got \($0)")
+            }
+        }
+        XCTAssertFalse(store.hasSession(.active))
+    }
+
+    func testSaveRejectsInvalidDisplay() {
+        let store = SessionStore(directory: dir)
+        var s = session(display("a"))
+        s.displays[0].display = DisplayDescriptor(
+            id: "",
+            logicalBounds: Rect2D(x: 0, y: 0, width: 0, height: 0),
+            pixelWidth: 0,
+            pixelHeight: 0,
+            backingScale: 0
+        )
+        XCTAssertThrowsError(try store.save(s, to: .active)) {
+            guard case .invalidContent = $0 as? SessionStoreError else {
+                return XCTFail("expected invalidContent, got \($0)")
+            }
+        }
+    }
+
+    func testZeroSchemaVersionIsRejectedAndQuarantined() throws {
+        let store = SessionStore(directory: dir)
+        var s = session(display("a"))
+        s.schemaVersion = 0
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try encoder.encode(s).write(to: dir.appendingPathComponent("active-session.json"))
+        XCTAssertThrowsError(try store.load(.active)) {
+            guard case .invalidContent = $0 as? SessionStoreError else {
+                return XCTFail("expected invalidContent, got \($0)")
+            }
+        }
+        XCTAssertFalse(store.hasSession(.active))
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: dir.appendingPathComponent("active-session.corrupt.json").path))
+    }
+
+    func testRemapMatchesEachConnectedDisplayAtMostOnce() {
+        // Two saved groups with identical characteristics compete for one
+        // connected display: the first wins, the second is retained.
+        let old1 = display("old1")
+        let old2 = display("old2")
+        let connected = display("new")
+        let first = MeasurementAnnotation(
+            displayID: "old1",
+            geometry: .horizontalMeasurement(start: Point2D(x: 1, y: 2), length: 3))
+        let second = MeasurementAnnotation(
+            displayID: "old2",
+            geometry: .guideline(axis: .vertical, position: 9))
+        let groups = [
+            DisplayAnnotations(display: old1, annotations: [first]),
+            DisplayAnnotations(display: old2, annotations: [second]),
+        ]
+        let result = SessionRemapper.remap(groups, connected: [connected])
+        XCTAssertEqual(result.count, 2)
+        let matched = result.first { $0.display.id == "new" }
+        XCTAssertEqual(matched?.annotations.map(\.id), [first.id])
+        let retained = result.first { $0.display.id == "old2" }
+        XCTAssertEqual(retained?.annotations.map(\.id), [second.id])
+    }
+
+    func testRemapSkipsInvalidConnectedDisplays() {
+        let old = display("a")
+        let invalid = DisplayDescriptor(
+            id: "",
+            logicalBounds: Rect2D(x: 0, y: 0, width: 0, height: 0),
+            pixelWidth: 0,
+            pixelHeight: 0,
+            backingScale: 0
+        )
+        let result = SessionRemapper.remap(session(old).displays, connected: [invalid])
+        XCTAssertEqual(result.count, 1)
+        XCTAssertEqual(result[0].display.id, "a")
+        XCTAssertEqual(result[0].annotations.count, 1)
+    }
+
     func testDisconnectedDisplayRetainedAndReconnects() {
         let a = display("a")
         let b = display("b", x: 1000, h: 800, px: 3000)

@@ -638,6 +638,211 @@ final class AnnotationInteractionTests: XCTestCase {
             ]
         )
     }
+
+    func testRightClickDeletesOnlyGuidelines() {
+        let coordinator = MeasurementCoordinator()
+        session(coordinator)
+        let guideline = MeasurementAnnotation(
+            displayID: "d1", geometry: .guideline(axis: .vertical, position: 500))
+        let measurement = MeasurementAnnotation(
+            displayID: "d1",
+            geometry: .horizontalMeasurement(start: Point2D(x: 100, y: 100), length: 200))
+        let rectangle = MeasurementAnnotation(
+            displayID: "d1", geometry: .rectangle(Rect2D(x: 400, y: 100, width: 200, height: 100)))
+        coordinator.addAnnotation(guideline)
+        coordinator.addAnnotation(measurement)
+        coordinator.addAnnotation(rectangle)
+        let controller = AnnotationInteractionController(
+            coordinator: coordinator, surface: StubSurface(displays: [display]),
+            preferencesStore: .shared, currentMeasurement: { nil })
+        controller.start()
+        defer { controller.stop() }
+
+        controller.annotationRightMouseDown(displayID: "d1", at: Point2D(x: 502, y: 300))
+        XCTAssertEqual(coordinator.activeSession?.annotationCount, 2)
+        XCTAssertNil(coordinator.activeSession?.displays[0].annotations
+            .first { $0.id == guideline.id })
+
+        // Right-clicking a measurement or rectangle body must not delete it.
+        controller.annotationRightMouseDown(displayID: "d1", at: Point2D(x: 150, y: 102))
+        controller.annotationRightMouseDown(displayID: "d1", at: Point2D(x: 500, y: 150))
+        XCTAssertEqual(coordinator.activeSession?.annotationCount, 2)
+    }
+
+    func testDragEventsOnOtherDisplayAreIgnored() {
+        let coordinator = MeasurementCoordinator()
+        session(coordinator)
+        let guideline = MeasurementAnnotation(
+            displayID: "d1", geometry: .guideline(axis: .vertical, position: 500))
+        coordinator.addAnnotation(guideline)
+        let surface = StubSurface(displays: [display])
+        let controller = AnnotationInteractionController(
+            coordinator: coordinator, surface: surface,
+            preferencesStore: .shared, currentMeasurement: { nil })
+        controller.start()
+        defer { controller.stop() }
+
+        controller.annotationMouseDown(displayID: "d1", at: Point2D(x: 500, y: 300))
+        controller.annotationMouseDragged(displayID: "d2", at: Point2D(x: 600, y: 300))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .guideline(axis: .vertical, position: 500))
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 520, y: 300))
+        controller.annotationMouseUp(displayID: "d1", at: Point2D(x: 520, y: 300))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .guideline(axis: .vertical, position: 520))
+    }
+
+    func testDeletingAnnotationMidDragCancelsTheDrag() {
+        let coordinator = MeasurementCoordinator()
+        session(coordinator)
+        let guideline = MeasurementAnnotation(
+            displayID: "d1", geometry: .guideline(axis: .vertical, position: 500))
+        coordinator.addAnnotation(guideline)
+        let controller = AnnotationInteractionController(
+            coordinator: coordinator, surface: StubSurface(displays: [display]),
+            preferencesStore: .shared, currentMeasurement: { nil })
+        controller.start()
+        defer { controller.stop() }
+
+        controller.annotationMouseDown(displayID: "d1", at: Point2D(x: 502, y: 300))
+        coordinator.removeAnnotation(id: guideline.id)
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 520, y: 300))
+        controller.annotationMouseUp(displayID: "d1", at: Point2D(x: 520, y: 300))
+        XCTAssertEqual(coordinator.activeSession?.annotationCount, 0)
+    }
+
+    func testPinCommandRejectsMissingDisplayUnboundCandidateAndPointerOutside() {
+        let coordinator = MeasurementCoordinator()
+        session(coordinator)
+        let surface = StubSurface(displays: [display])
+        var candidate: DetectionCandidate?
+        let controller = AnnotationInteractionController(
+            coordinator: coordinator, surface: surface,
+            preferencesStore: .shared, currentMeasurement: { candidate })
+        controller.start()
+        defer { controller.stop() }
+        let pointer = Point2D(x: -500, y: 300)  // display-local (500, 300)
+
+        // Candidate without a display association.
+        candidate = DetectionCandidate(
+            bounds: Rect2D(x: 400, y: 250, width: 200, height: 100),
+            source: .vision, confidence: 0.5, displayID: nil)
+        controller.handle(.pinHorizontal(at: pointer))
+        controller.handle(.pinVertical(at: pointer))
+        XCTAssertEqual(coordinator.activeSession?.annotationCount, 0)
+
+        // Pointer outside the candidate bounds (local 500,300 vs bounds 0-50).
+        candidate = DetectionCandidate(
+            bounds: Rect2D(x: 0, y: 0, width: 50, height: 50),
+            source: .vision, confidence: 0.5, displayID: "d1")
+        controller.handle(.pinHorizontal(at: pointer))
+        XCTAssertEqual(coordinator.activeSession?.annotationCount, 0)
+
+        // Display no longer connected.
+        candidate = DetectionCandidate(
+            bounds: Rect2D(x: 400, y: 250, width: 200, height: 100),
+            source: .vision, confidence: 0.5, displayID: "missing")
+        controller.handle(.pinHorizontal(at: pointer))
+        XCTAssertEqual(coordinator.activeSession?.annotationCount, 0)
+
+        // Sanity: a valid candidate pins.
+        candidate = DetectionCandidate(
+            bounds: Rect2D(x: 400, y: 250, width: 200, height: 100),
+            source: .vision, confidence: 0.5, displayID: "d1")
+        controller.handle(.pinHorizontal(at: pointer))
+        XCTAssertEqual(coordinator.activeSession?.annotationCount, 1)
+    }
+
+    func testGuidelinesStoreDisplayLocalPosition() {
+        let coordinator = MeasurementCoordinator()
+        session(coordinator)  // display d1: global x -1000..0, y 0..600
+        let surface = StubSurface(displays: [display])
+        let controller = AnnotationInteractionController(
+            coordinator: coordinator, surface: surface,
+            preferencesStore: .shared, currentMeasurement: { nil })
+        controller.start()
+        defer { controller.stop() }
+
+        // Pointer at global (-500, 300) -> display-local (500, 300).
+        controller.handle(.addVerticalGuideline(x: -500))
+        controller.handle(.addHorizontalGuideline(y: 300))
+        XCTAssertEqual(
+            coordinator.activeSession?.displays[0].annotations.map(\.geometry),
+            [
+                .guideline(axis: .vertical, position: 500),
+                .guideline(axis: .horizontal, position: 300),
+            ]
+        )
+    }
+
+    func testGuidelineOnDisplayWithNonZeroOrigin() {
+        let topDisplay = DisplayDescriptor(
+            id: "dtop",
+            logicalBounds: Rect2D(x: 0, y: 1000, width: 1000, height: 600),
+            pixelWidth: 2000,
+            pixelHeight: 1200,
+            backingScale: 2
+        )
+        let coordinator = MeasurementCoordinator()
+        coordinator.startFreshSession(displays: [topDisplay], pointer: Point2D(x: 500, y: 1300))
+        let controller = AnnotationInteractionController(
+            coordinator: coordinator,
+            surface: StubSurface(displays: [topDisplay]),
+            preferencesStore: .shared, currentMeasurement: { nil })
+        controller.start()
+        defer { controller.stop() }
+
+        controller.handle(.addVerticalGuideline(x: 500))
+        controller.handle(.addHorizontalGuideline(y: 1300))
+        XCTAssertEqual(
+            coordinator.activeSession?.displays[0].annotations.map(\.geometry),
+            [
+                .guideline(axis: .vertical, position: 500),
+                .guideline(axis: .horizontal, position: 300),
+            ]
+        )
+    }
+
+    func testSnapIgnoresSiblingLinesTheDraggedAnnotationDoesNotCross() throws {
+        // Blank capture: no visual edges, only pinned lines can snap.
+        let context = try XCTUnwrap(CGContext(data: nil, width: 1000, height: 600,
+            bitsPerComponent: 8, bytesPerRow: 4000, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 1000, height: 600))
+        let coordinator = MeasurementCoordinator()
+        session(coordinator)
+        // Dragged bar: y=100 spanning x 100-400. Sibling bar: y=105 but
+        // spanning x 600-700, so the dragged bar never crosses it.
+        coordinator.addAnnotation(MeasurementAnnotation(displayID: "d1",
+            geometry: .horizontalMeasurement(start: Point2D(x: 100, y: 100), length: 300)))
+        coordinator.addAnnotation(MeasurementAnnotation(displayID: "d1",
+            geometry: .horizontalMeasurement(start: Point2D(x: 600, y: 105), length: 100)))
+        let surface = StubSurface(displays: [display])
+        surface.capture = CapturedDisplayRegion(image: try XCTUnwrap(context.makeImage()),
+            displayID: "d1",
+            displayLocalBounds: Rect2D(x: 0, y: 0, width: 1000, height: 600))
+        let controller = AnnotationInteractionController(coordinator: coordinator, surface: surface,
+            preferencesStore: PreferencesStore(defaults: UserDefaults(suiteName: UUID().uuidString)!),
+            currentMeasurement: { nil }, commandHeld: { false }, snapFeedback: { _ in })
+        controller.start()
+        defer { controller.stop() }
+
+        controller.annotationMouseDown(displayID: "d1", at: Point2D(x: 250, y: 102))
+        // dy=+1 puts the raw bar at y=101 — inside the sibling's attraction
+        // range, but the sibling is excluded because the bars never cross.
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 250, y: 103))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .horizontalMeasurement(start: Point2D(x: 100, y: 101), length: 300))
+
+        // A full-width guideline at y=105 does cross the dragged bar.
+        coordinator.addAnnotation(MeasurementAnnotation(displayID: "d1",
+            geometry: .guideline(axis: .horizontal, position: 105)))
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 250, y: 103))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .horizontalMeasurement(start: Point2D(x: 100, y: 105), length: 300))
+        controller.annotationMouseUp(displayID: "d1", at: Point2D(x: 250, y: 103))
+    }
 }
 
 @MainActor
@@ -677,5 +882,44 @@ final class PinnedLineSnapperTests: XCTestCase {
         let snapped = PinnedLineSnapper.snap(
             candidate, pointer: Point2D(x: 200, y: 150), annotations: annotations)
         XCTAssertEqual(snapped.bounds, Rect2D(x: 100, y: 50, width: 250, height: 250))
+    }
+
+    func testMeasurementLinesApplyOnlyWithinPointerSpan() {
+        let candidate = DetectionCandidate(
+            bounds: Rect2D(x: 0, y: 0, width: 400, height: 300),
+            source: .vision, confidence: 1, displayID: "d")
+        let annotations = [
+            // x-range 50-150 excludes pointer.x=200: ignored.
+            MeasurementAnnotation(displayID: "d",
+                geometry: .horizontalMeasurement(start: Point2D(x: 50, y: 40), length: 100)),
+            // x-range 150-250 contains pointer.x=200: narrows minY to 60.
+            MeasurementAnnotation(displayID: "d",
+                geometry: .horizontalMeasurement(start: Point2D(x: 150, y: 60), length: 100)),
+            // 0.2pt from the pointer: inside the epsilon, ignored.
+            MeasurementAnnotation(displayID: "d",
+                geometry: .guideline(axis: .vertical, position: 199.8)),
+            // Beyond the pointer on x: narrows maxX to 350.
+            MeasurementAnnotation(displayID: "d",
+                geometry: .guideline(axis: .vertical, position: 350)),
+            // y=500 is outside the candidate's height: ignored.
+            MeasurementAnnotation(displayID: "d",
+                geometry: .guideline(axis: .horizontal, position: 500)),
+        ]
+        let snapped = PinnedLineSnapper.snap(
+            candidate, pointer: Point2D(x: 200, y: 150), annotations: annotations)
+        XCTAssertEqual(snapped.bounds, Rect2D(x: 0, y: 60, width: 350, height: 240))
+    }
+
+    func testCandidateWithoutDisplayIDIsReturnedUnchanged() {
+        let candidate = DetectionCandidate(
+            bounds: Rect2D(x: 0, y: 0, width: 400, height: 300),
+            source: .vision, confidence: 1, displayID: nil)
+        let annotations = [
+            MeasurementAnnotation(displayID: "d",
+                geometry: .guideline(axis: .vertical, position: 100)),
+        ]
+        XCTAssertEqual(
+            PinnedLineSnapper.snap(candidate, pointer: Point2D(x: 200, y: 150), annotations: annotations),
+            candidate)
     }
 }

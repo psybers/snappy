@@ -90,4 +90,333 @@ final class RectangleSelectionTests: XCTestCase {
         let r = RectangleSelectionController.rect(from: Point2D(x: 50, y: 40), to: Point2D(x: 10, y: 90))
         XCTAssertEqual(r, Rect2D(x: 10, y: 40, width: 40, height: 50))
     }
+
+    // MARK: - RectangleSelectionService
+
+    private let serviceDisplay = DisplayDescriptor(
+        id: "d1",
+        logicalBounds: Rect2D(x: 0, y: 0, width: 1000, height: 600),
+        pixelWidth: 2000,
+        pixelHeight: 1200,
+        backingScale: 2
+    )
+
+    @MainActor
+    private func makeService(
+        axTrusted: Bool = true,
+        axSnapshot: AccessibilityElementSnapshot? = nil,
+        capture result: Result<CapturedDisplayRegion, Error>? = nil
+    ) -> (RectangleSelectionService, StubAccessibilityQuery, StubCaptureClient) {
+        let ax = StubAccessibilityQuery()
+        ax.isTrusted = axTrusted
+        ax.snapshot = axSnapshot
+        let capturer = StubCaptureClient()
+        capturer.result = result
+        return (
+            RectangleSelectionService(
+                accessibilityClient: ax,
+                capturer: capturer,
+                contentDetector: ContentBoundsDetector()
+            ),
+            ax,
+            capturer
+        )
+    }
+
+    /// An AX element covering AppKit-global rect (120, 120, 100, 50) on a
+    /// display whose primary bounds are (0, 0, 1000, 600): the AX-space
+    /// origin is top-left, so the snapshot's y is 600 - 170 = 430.
+    private func axSnapshot() -> AccessibilityElementSnapshot {
+        AccessibilityElementSnapshot(
+            position: Point2D(x: 120, y: 430),
+            size: Size2D(width: 100, height: 50),
+            role: "AXButton"
+        )
+    }
+
+    @MainActor
+    func testServicePrefersAccessibilityElements() async {
+        let (service, _, _) = makeService(axSnapshot: axSnapshot())
+        let analysis = await service.analyze(
+            selection: Rect2D(x: 100, y: 100, width: 200, height: 100),
+            displays: [serviceDisplay],
+            primaryDisplayBounds: serviceDisplay.logicalBounds
+        )
+        XCTAssertEqual(analysis?.displayID, "d1")
+        XCTAssertEqual(analysis?.source, .accessibility)
+        XCTAssertEqual(analysis?.bounds, Rect2D(x: 120, y: 120, width: 100, height: 50))
+    }
+
+    @MainActor
+    func testServiceFallsBackToVisionContentBounds() async {
+        let captured = CapturedDisplayRegion(
+            image: image(width: 100, height: 100, square: (20, 30, 40, 10)),
+            displayID: "d1",
+            displayLocalBounds: Rect2D(x: 100, y: 200, width: 100, height: 100)
+        )
+        // AX trusted but hit-testing finds nothing, so capture is used.
+        let (service, _, capturer) = makeService(
+            axTrusted: true, axSnapshot: nil, capture: .success(captured))
+        let analysis = await service.analyze(
+            selection: Rect2D(x: 100, y: 200, width: 100, height: 100),
+            displays: [serviceDisplay],
+            primaryDisplayBounds: serviceDisplay.logicalBounds
+        )
+        XCTAssertEqual(capturer.requests, ["d1"])
+        XCTAssertEqual(analysis?.source, .vision)
+        XCTAssertEqual(analysis?.bounds, Rect2D(x: 120, y: 230, width: 40, height: 10))
+    }
+
+    @MainActor
+    func testServiceFallsBackToRawSelectionWhenCaptureFails() async {
+        let (service, _, _) = makeService(capture: .failure(ScreenCaptureError.permissionDenied))
+        let selection = Rect2D(x: 100, y: 200, width: 100, height: 100)
+        let analysis = await service.analyze(
+            selection: selection,
+            displays: [serviceDisplay],
+            primaryDisplayBounds: serviceDisplay.logicalBounds
+        )
+        XCTAssertNil(analysis?.source)
+        XCTAssertEqual(analysis?.bounds, selection)
+    }
+
+    @MainActor
+    func testServiceAnalyzesDisplayContainingSelectionCenter() async {
+        let a = serviceDisplay
+        let b = DisplayDescriptor(
+            id: "d2",
+            logicalBounds: Rect2D(x: 2000, y: 0, width: 500, height: 400),
+            pixelWidth: 1000,
+            pixelHeight: 800,
+            backingScale: 2
+        )
+        let (service, _, _) = makeService(capture: .failure(ScreenCaptureError.permissionDenied))
+        let analysis = await service.analyze(
+            selection: Rect2D(x: 2050, y: 100, width: 200, height: 100),
+            displays: [a, b],
+            primaryDisplayBounds: a.logicalBounds
+        )
+        XCTAssertEqual(analysis?.displayID, "d2")
+        XCTAssertEqual(analysis?.bounds, Rect2D(x: 50, y: 100, width: 200, height: 100))
+    }
+
+    @MainActor
+    func testServiceUsesIntersectingDisplayWhenCenterIsOutsideAll() async {
+        let a = serviceDisplay
+        let b = DisplayDescriptor(
+            id: "d2",
+            logicalBounds: Rect2D(x: 2000, y: 0, width: 500, height: 400),
+            pixelWidth: 1000,
+            pixelHeight: 800,
+            backingScale: 2
+        )
+        let (service, _, _) = makeService(capture: .failure(ScreenCaptureError.permissionDenied))
+        // Center (1800, 200) is in the gap; the selection clips into d2.
+        let analysis = await service.analyze(
+            selection: Rect2D(x: 1500, y: 100, width: 600, height: 200),
+            displays: [a, b],
+            primaryDisplayBounds: a.logicalBounds
+        )
+        XCTAssertEqual(analysis?.displayID, "d2")
+        XCTAssertEqual(analysis?.bounds, Rect2D(x: 0, y: 100, width: 100, height: 200))
+    }
+
+    @MainActor
+    func testServiceReturnsNilWhenSelectionMissesEveryDisplay() async {
+        let b = DisplayDescriptor(
+            id: "d2",
+            logicalBounds: Rect2D(x: 2000, y: 0, width: 500, height: 400),
+            pixelWidth: 1000,
+            pixelHeight: 800,
+            backingScale: 2
+        )
+        let (service, _, capturer) = makeService(capture: .failure(ScreenCaptureError.permissionDenied))
+        let analysis = await service.analyze(
+            selection: Rect2D(x: 1200, y: 100, width: 100, height: 100),
+            displays: [serviceDisplay, b],
+            primaryDisplayBounds: serviceDisplay.logicalBounds
+        )
+        XCTAssertNil(analysis)
+        XCTAssertTrue(capturer.requests.isEmpty)
+    }
+
+    // MARK: - RectangleSelectionController
+
+    @MainActor
+    func testControllerRejectsSelectionsBelowMinimumSize() async throws {
+        let coordinator = MeasurementCoordinator()
+        coordinator.startFreshSession(displays: [serviceDisplay], pointer: Point2D(x: 10, y: 10))
+        let analyzer = StubSelectionAnalyzer()
+        let controller = RectangleSelectionController(
+            coordinator: coordinator,
+            surface: StubSelectionSurface(
+                displays: [serviceDisplay],
+                primary: serviceDisplay.logicalBounds),
+            analyzer: analyzer
+        )
+        controller.start()
+        defer { controller.stop() }
+        coordinator.commands.send(.selectRectangle(Rect2D(x: 0, y: 0, width: 3, height: 3)))
+        coordinator.commands.send(.selectRectangle(Rect2D(x: 0, y: 0, width: 4, height: 2)))
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(analyzer.calls, 0)
+    }
+
+    @MainActor
+    func testControllerAddsPersistentRectangleFromAnalysis() async throws {
+        let coordinator = MeasurementCoordinator()
+        coordinator.startFreshSession(displays: [serviceDisplay], pointer: Point2D(x: 10, y: 10))
+        let analyzer = StubSelectionAnalyzer()
+        analyzer.results = [
+            RectangleAnalysis(
+                displayID: "d1",
+                bounds: Rect2D(x: 10, y: 20, width: 30, height: 40),
+                source: .vision
+            )
+        ]
+        let controller = RectangleSelectionController(
+            coordinator: coordinator,
+            surface: StubSelectionSurface(
+                displays: [serviceDisplay],
+                primary: serviceDisplay.logicalBounds),
+            analyzer: analyzer
+        )
+        controller.start()
+        defer { controller.stop() }
+        coordinator.commands.send(.selectRectangle(Rect2D(x: 0, y: 0, width: 100, height: 100)))
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(analyzer.calls, 1)
+        XCTAssertEqual(
+            coordinator.activeSession?.displays[0].annotations.map(\.geometry),
+            [.rectangle(Rect2D(x: 10, y: 20, width: 30, height: 40))]
+        )
+    }
+
+    @MainActor
+    func testControllerDiscardsAnalysisWhenModeExitsMidFlight() async throws {
+        let coordinator = MeasurementCoordinator()
+        coordinator.startFreshSession(displays: [serviceDisplay], pointer: Point2D(x: 10, y: 10))
+        let analyzer = StubSelectionAnalyzer()
+        analyzer.suspend = true
+        let controller = RectangleSelectionController(
+            coordinator: coordinator,
+            surface: StubSelectionSurface(
+                displays: [serviceDisplay],
+                primary: serviceDisplay.logicalBounds),
+            analyzer: analyzer
+        )
+        controller.start()
+        defer { controller.stop() }
+        coordinator.commands.send(.selectRectangle(Rect2D(x: 0, y: 0, width: 100, height: 100)))
+        try await Task.sleep(nanoseconds: 20_000_000)
+        XCTAssertEqual(analyzer.calls, 1)
+        coordinator.stop()
+        analyzer.resume()
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(coordinator.activeSession?.annotationCount, 0)
+    }
+
+    @MainActor
+    func testControllerDrivesSelectionSurfaceWithMode() {
+        let coordinator = MeasurementCoordinator()
+        let surface = StubSelectionSurface(
+            displays: [serviceDisplay],
+            primary: serviceDisplay.logicalBounds)
+        let controller = RectangleSelectionController(
+            coordinator: coordinator,
+            surface: surface,
+            analyzer: StubSelectionAnalyzer()
+        )
+        controller.start()
+        defer { controller.stop() }
+
+        coordinator.startFreshSession(displays: [serviceDisplay], pointer: Point2D(x: 10, y: 10))
+        XCTAssertEqual(surface.captures.last, true)
+        XCTAssertNil(surface.selectionRects.last ?? nil)
+
+        coordinator.leftMouseDown(at: Point2D(x: 100, y: 100))
+        XCTAssertEqual(
+            surface.selectionRects.last ?? nil,
+            Rect2D(x: 100, y: 100, width: 0, height: 0))
+
+        coordinator.pointerMoved(to: Point2D(x: 300, y: 250))
+        XCTAssertEqual(
+            surface.selectionRects.last ?? nil,
+            Rect2D(x: 100, y: 100, width: 200, height: 150))
+
+        coordinator.leftMouseUp(at: Point2D(x: 300, y: 250))
+        // The drag rect was shown during the gesture, then cleared on release.
+        XCTAssertTrue(surface.selectionRects.contains(Rect2D(x: 100, y: 100, width: 200, height: 150)))
+        XCTAssertNil(surface.selectionRects.last ?? nil)
+
+        coordinator.stop()
+        XCTAssertEqual(surface.captures.last, false)
+    }
+}
+
+@MainActor
+private final class StubAccessibilityQuery: AccessibilityElementQuerying {
+    var isTrusted = true
+    var snapshot: AccessibilityElementSnapshot?
+
+    func element(at accessibilityPoint: Point2D) -> AccessibilityElementSnapshot? {
+        snapshot
+    }
+}
+
+@MainActor
+private final class StubCaptureClient: ScreenRegionCapturing {
+    var result: Result<CapturedDisplayRegion, Error>?
+    private(set) var requests: [String] = []
+
+    func capture(region: Rect2D, on display: DisplayDescriptor) async throws -> CapturedDisplayRegion {
+        requests.append(display.id)
+        return try result!.get()
+    }
+}
+
+@MainActor
+private final class StubSelectionSurface: SelectionSurfacePresenting {
+    let connectedDisplays: [DisplayDescriptor]
+    let primaryDisplayBounds: Rect2D?
+    private(set) var selectionRects: [Rect2D?] = []
+    private(set) var captures: [Bool] = []
+
+    init(displays: [DisplayDescriptor], primary: Rect2D?) {
+        connectedDisplays = displays
+        primaryDisplayBounds = primary
+    }
+
+    func setSelectionRect(_ globalRect: Rect2D?) {
+        selectionRects.append(globalRect)
+    }
+
+    func setCapturesMouse(_ captures: Bool) {
+        self.captures.append(captures)
+    }
+}
+
+@MainActor
+private final class StubSelectionAnalyzer: RectangleSelectionAnalyzing {
+    var results: [RectangleAnalysis?] = []
+    private(set) var calls = 0
+    var suspend = false
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    func analyze(
+        selection: Rect2D,
+        displays: [DisplayDescriptor],
+        primaryDisplayBounds: Rect2D
+    ) async -> RectangleAnalysis? {
+        calls += 1
+        if suspend {
+            await withCheckedContinuation { continuation = $0 }
+        }
+        return results.isEmpty ? nil : results.removeFirst()
+    }
+
+    func resume() {
+        continuation?.resume()
+        continuation = nil
+    }
 }
