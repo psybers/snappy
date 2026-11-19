@@ -339,6 +339,76 @@ final class AnnotationInteractionTests: XCTestCase {
         controller.annotationMouseUp(displayID: "d1", at: Point2D(x: 315, y: 170))
     }
 
+    func testRectangleResizeSnapsDraggedEdgeAndCommandDisables() throws {
+        let context = try XCTUnwrap(CGContext(data: nil, width: 1000, height: 600,
+            bitsPerComponent: 8, bytesPerRow: 4000, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 1000, height: 600))
+        context.setFillColor(CGColor(gray: 0, alpha: 1))
+        context.fill(CGRect(x: 500, y: 0, width: 500, height: 600))
+        let coordinator = MeasurementCoordinator()
+        session(coordinator)
+        let rect = Rect2D(x: 100, y: 100, width: 200, height: 100)
+        coordinator.addAnnotation(MeasurementAnnotation(displayID: "d1", geometry: .rectangle(rect)))
+        let surface = StubSurface(displays: [display])
+        surface.capture = CapturedDisplayRegion(image: try XCTUnwrap(context.makeImage()), displayID: "d1",
+            displayLocalBounds: Rect2D(x: 0, y: 0, width: 1000, height: 600))
+        var commandHeld = false
+        let controller = AnnotationInteractionController(coordinator: coordinator, surface: surface,
+            preferencesStore: PreferencesStore(defaults: UserDefaults(suiteName: UUID().uuidString)!),
+            currentMeasurement: { nil }, commandHeld: { commandHeld }, snapFeedback: { _ in })
+        controller.start()
+        defer { controller.stop() }
+        // Grab the right edge; dragging to x=495 puts it near the visual
+        // edge at x=500, so the edge snaps there instead of stopping at 495.
+        controller.annotationMouseDown(displayID: "d1", at: Point2D(x: 300, y: 150))
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 495, y: 150))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .rectangle(Rect2D(x: 100, y: 100, width: 400, height: 100)))
+        commandHeld = true
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 490, y: 150))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .rectangle(Rect2D(x: 100, y: 100, width: 390, height: 100)))
+        commandHeld = false
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 495, y: 150))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .rectangle(Rect2D(x: 100, y: 100, width: 400, height: 100)))
+        controller.annotationMouseUp(displayID: "d1", at: Point2D(x: 495, y: 150))
+    }
+
+    func testRectangleResizeCornerSnapsToGuidelines() throws {
+        // Blank capture: only pinned lines can snap.
+        let context = try XCTUnwrap(CGContext(data: nil, width: 1000, height: 600,
+            bitsPerComponent: 8, bytesPerRow: 4000, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 1000, height: 600))
+        let coordinator = MeasurementCoordinator()
+        session(coordinator)
+        coordinator.addAnnotation(MeasurementAnnotation(displayID: "d1",
+            geometry: .guideline(axis: .vertical, position: 490)))
+        coordinator.addAnnotation(MeasurementAnnotation(displayID: "d1",
+            geometry: .guideline(axis: .horizontal, position: 90)))
+        let rect = Rect2D(x: 100, y: 100, width: 200, height: 100)
+        coordinator.addAnnotation(MeasurementAnnotation(displayID: "d1", geometry: .rectangle(rect)))
+        let surface = StubSurface(displays: [display])
+        surface.capture = CapturedDisplayRegion(image: try XCTUnwrap(context.makeImage()), displayID: "d1",
+            displayLocalBounds: Rect2D(x: 0, y: 0, width: 1000, height: 600))
+        let controller = AnnotationInteractionController(coordinator: coordinator, surface: surface,
+            preferencesStore: PreferencesStore(defaults: UserDefaults(suiteName: UUID().uuidString)!),
+            currentMeasurement: { nil }, snapFeedback: { _ in })
+        controller.start()
+        defer { controller.stop() }
+        // Grab the bottom-right corner; the raw drag lands the right edge at
+        // x=485 and the bottom edge at y=95, near the guidelines at 490 and 90.
+        controller.annotationMouseDown(displayID: "d1", at: Point2D(x: 300, y: 100))
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 485, y: 95))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[2].geometry,
+                       .rectangle(Rect2D(x: 100, y: 90, width: 390, height: 110)))
+        controller.annotationMouseUp(displayID: "d1", at: Point2D(x: 485, y: 95))
+    }
+
     private let display = DisplayDescriptor(
         id: "d1",
         logicalBounds: Rect2D(x: -1000, y: 0, width: 1000, height: 600),
