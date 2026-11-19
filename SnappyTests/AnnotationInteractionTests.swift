@@ -381,16 +381,25 @@ final class AnnotationInteractionTests: XCTestCase {
         controller.start()
         defer { controller.stop() }
 
-        for point in [Point2D(x: 120, y: 120), Point2D(x: 100, y: 150)] {
-            coordinator.updateAnnotationGeometry(id: annotation.id, geometry: .rectangle(rect))
-            XCTAssertEqual(AnnotationHitTester.hit(at: point, in: [annotation], labelFontSize: 14), .body(annotation.id))
-            controller.annotationMouseDown(displayID: "d1", at: point)
-            XCTAssertEqual(coordinator.activeSession?.annotationCount, 1)
-            controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: point.x + 40, y: point.y - 30))
-            controller.annotationMouseUp(displayID: "d1", at: Point2D(x: point.x + 40, y: point.y - 30))
-            XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
-                           .rectangle(Rect2D(x: 140, y: 70, width: 300, height: 200)))
-        }
+        // Interior drags move the rectangle without changing its dimensions.
+        coordinator.updateAnnotationGeometry(id: annotation.id, geometry: .rectangle(rect))
+        XCTAssertEqual(AnnotationHitTester.hit(at: Point2D(x: 120, y: 120), in: [annotation], labelFontSize: 14), .body(annotation.id))
+        controller.annotationMouseDown(displayID: "d1", at: Point2D(x: 120, y: 120))
+        XCTAssertEqual(coordinator.activeSession?.annotationCount, 1)
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 160, y: 90))
+        controller.annotationMouseUp(displayID: "d1", at: Point2D(x: 160, y: 90))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .rectangle(Rect2D(x: 140, y: 70, width: 300, height: 200)))
+
+        // Edge drags resize instead of move.
+        coordinator.updateAnnotationGeometry(id: annotation.id, geometry: .rectangle(rect))
+        XCTAssertEqual(AnnotationHitTester.hit(at: Point2D(x: 100, y: 150), in: [annotation], labelFontSize: 14),
+                       .resize(annotation.id, .left))
+        controller.annotationMouseDown(displayID: "d1", at: Point2D(x: 100, y: 150))
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 140, y: 120))
+        controller.annotationMouseUp(displayID: "d1", at: Point2D(x: 140, y: 120))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .rectangle(Rect2D(x: 140, y: 100, width: 260, height: 200)))
         XCTAssertEqual(AnnotationEditing.moved(.rectangle(rect), dx: 5000, dy: -5000,
                                              within: display.logicalBounds.size),
                        .rectangle(Rect2D(x: 700, y: 0, width: 300, height: 200)))
@@ -401,6 +410,60 @@ final class AnnotationInteractionTests: XCTestCase {
                        .label(annotation.id))
         controller.annotationMouseDown(displayID: "d1", at: labelCenter)
         XCTAssertEqual(coordinator.activeSession?.annotationCount, 0)
+    }
+
+    func testRectangleResizeZonesAndClamping() {
+        let size = Size2D(width: 1000, height: 600)
+        let geometry = AnnotationGeometry.rectangle(Rect2D(x: 100, y: 100, width: 300, height: 200))
+        XCTAssertEqual(
+            AnnotationEditing.resized(geometry, zone: .right, dx: 50, dy: 0, within: size),
+            .rectangle(Rect2D(x: 100, y: 100, width: 350, height: 200))
+        )
+        XCTAssertEqual(
+            AnnotationEditing.resized(geometry, zone: .topLeft, dx: -40, dy: 30, within: size),
+            .rectangle(Rect2D(x: 60, y: 100, width: 340, height: 230))
+        )
+        XCTAssertEqual(
+            AnnotationEditing.resized(geometry, zone: .left, dx: -500, dy: 0, within: size),
+            .rectangle(Rect2D(x: 0, y: 100, width: 400, height: 200))
+        )
+        XCTAssertEqual(
+            AnnotationEditing.resized(geometry, zone: .right, dx: 5000, dy: 0, within: size),
+            .rectangle(Rect2D(x: 100, y: 100, width: 900, height: 200))
+        )
+        XCTAssertEqual(
+            AnnotationEditing.resized(geometry, zone: .bottom, dx: 0, dy: -500, within: size),
+            .rectangle(Rect2D(x: 100, y: 0, width: 300, height: 300))
+        )
+        // A 1pt minimum dimension is enforced.
+        XCTAssertEqual(
+            AnnotationEditing.resized(geometry, zone: .right, dx: -500, dy: 0, within: size),
+            .rectangle(Rect2D(x: 100, y: 100, width: 1, height: 200))
+        )
+    }
+
+    func testRectangleResizeZoneHitTesting() {
+        let annotation = MeasurementAnnotation(
+            displayID: "d1",
+            geometry: .rectangle(Rect2D(x: 100, y: 100, width: 300, height: 200))
+        )
+        let list = [annotation]
+        XCTAssertEqual(
+            AnnotationHitTester.hit(at: Point2D(x: 100, y: 150), in: list, labelFontSize: 14),
+            .resize(annotation.id, .left)
+        )
+        XCTAssertEqual(
+            AnnotationHitTester.hit(at: Point2D(x: 400, y: 295), in: list, labelFontSize: 14),
+            .resize(annotation.id, .topRight)
+        )
+        XCTAssertEqual(
+            AnnotationHitTester.hit(at: Point2D(x: 250, y: 100), in: list, labelFontSize: 14),
+            .resize(annotation.id, .bottom)
+        )
+        XCTAssertEqual(
+            AnnotationHitTester.hit(at: Point2D(x: 250, y: 150), in: list, labelFontSize: 14),
+            .body(annotation.id)
+        )
     }
 
     func testAnnotationForUnknownDisplayIsIgnored() {

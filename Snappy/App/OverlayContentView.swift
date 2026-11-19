@@ -107,6 +107,14 @@ final class TemporaryMeasurementOverlayView: NSView {
         guard let hover else { return showsMeasureCursor ? .crosshair : nil }
         guard let annotation = annotations.first(where: { $0.id == hover.id }) else { return nil }
         if case .label = hover { return .pointingHand }
+        if case .resize(_, let zone) = hover {
+            switch zone {
+            case .left, .right: return .resizeLeftRight
+            case .top, .bottom: return .resizeUpDown
+            // AppKit exposes no public diagonal resize cursors.
+            case .topLeft, .topRight, .bottomLeft, .bottomRight: return .closedHand
+            }
+        }
         switch annotation.geometry {
         case .guideline(let axis, _):
             return axis == .horizontal ? .resizeUpDown : .resizeLeftRight

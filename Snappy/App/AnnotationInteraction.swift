@@ -2,13 +2,26 @@ import AppKit
 import Combine
 import Foundation
 
+/// Which part of a rectangle is being manipulated: its interior/outline
+/// moves it (`body`), while `resize` zones change one or two of its edges.
+enum ResizeZone: Equatable {
+    case left, right, top, bottom
+    case topLeft, topRight, bottomLeft, bottomRight
+
+    var adjustsMinX: Bool { self == .left || self == .topLeft || self == .bottomLeft }
+    var adjustsMaxX: Bool { self == .right || self == .topRight || self == .bottomRight }
+    var adjustsMinY: Bool { self == .bottom || self == .bottomLeft || self == .bottomRight }
+    var adjustsMaxY: Bool { self == .top || self == .topLeft || self == .topRight }
+}
+
 enum AnnotationHit: Equatable {
     case label(UUID)
     case body(UUID)
+    case resize(UUID, ResizeZone)
 
     var id: UUID {
         switch self {
-        case .label(let id), .body(let id):
+        case .label(let id), .body(let id), .resize(let id, _):
             id
         }
     }
@@ -219,6 +232,28 @@ enum AnnotationHitTester {
             || point.y >= rect.maxY - tolerance
     }
 
+    /// The resize zone under `point`: within `tolerance` of an edge line and
+    /// inside that edge's span (corners included, extended by `tolerance`).
+    static func resizeZone(at point: Point2D, of rect: Rect2D, tolerance: Double) -> ResizeZone? {
+        let withinX = point.x >= rect.minX - tolerance && point.x <= rect.maxX + tolerance
+        let withinY = point.y >= rect.minY - tolerance && point.y <= rect.maxY + tolerance
+        let nearLeft = abs(point.x - rect.minX) <= tolerance && withinY
+        let nearRight = abs(point.x - rect.maxX) <= tolerance && withinY
+        let nearBottom = abs(point.y - rect.minY) <= tolerance && withinX
+        let nearTop = abs(point.y - rect.maxY) <= tolerance && withinX
+        switch (nearLeft, nearRight, nearBottom, nearTop) {
+        case (true, _, true, _): return .bottomLeft
+        case (true, _, _, true): return .topLeft
+        case (_, true, true, _): return .bottomRight
+        case (_, true, _, true): return .topRight
+        case (true, _, _, _): return .left
+        case (_, true, _, _): return .right
+        case (_, _, true, _): return .bottom
+        case (_, _, _, true): return .top
+        default: return nil
+        }
+    }
+
     static func hit(
         at point: Point2D,
         in annotations: [MeasurementAnnotation],
@@ -254,9 +289,13 @@ enum AnnotationHitTester {
             }
         }
         for annotation in newestFirst {
-            if case .rectangle(let rect) = annotation.geometry,
-               rect.contains(point) || onOutline(point, of: rect, tolerance: tolerance) {
-                return .body(annotation.id)
+            if case .rectangle(let rect) = annotation.geometry {
+                if let zone = resizeZone(at: point, of: rect, tolerance: tolerance) {
+                    return .resize(annotation.id, zone)
+                }
+                if rect.contains(point) || onOutline(point, of: rect, tolerance: tolerance) {
+                    return .body(annotation.id)
+                }
             }
         }
         for annotation in newestFirst {
@@ -314,6 +353,39 @@ enum AnnotationEditing {
         }
     }
 
+    /// Resizes a rectangle by moving the edges named by `zone`, keeping the
+    /// opposite edges fixed and the result inside the display.
+    static func resized(
+        _ geometry: AnnotationGeometry,
+        zone: ResizeZone,
+        dx: Double,
+        dy: Double,
+        within size: Size2D
+    ) -> AnnotationGeometry {
+        guard case .rectangle(let rect) = geometry else { return geometry }
+        let minimum = 1.0
+        func clamp(_ value: Double, _ lower: Double, _ upper: Double) -> Double {
+            min(max(value, lower), max(upper, lower))
+        }
+        var minX = rect.minX
+        var minY = rect.minY
+        var maxX = rect.maxX
+        var maxY = rect.maxY
+        if zone.adjustsMinX {
+            minX = clamp(rect.minX + dx, 0, rect.maxX - minimum)
+        }
+        if zone.adjustsMaxX {
+            maxX = clamp(rect.maxX + dx, rect.minX + minimum, size.width)
+        }
+        if zone.adjustsMinY {
+            minY = clamp(rect.minY + dy, 0, rect.maxY - minimum)
+        }
+        if zone.adjustsMaxY {
+            maxY = clamp(rect.maxY + dy, rect.minY + minimum, size.height)
+        }
+        return .rectangle(Rect2D(x: minX, y: minY, width: maxX - minX, height: maxY - minY))
+    }
+
     /// Builds a persistent measurement from the current temporary one.
     static func pinned(
         _ axis: AnnotationAxis,
@@ -364,6 +436,8 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
         let displayID: String
         let startLocal: Point2D
         let original: AnnotationGeometry
+        /// nil moves the annotation; a zone resizes a rectangle edge/corner.
+        let zone: ResizeZone?
     }
 
     typealias MeasurementProvider = () -> DetectionCandidate?
@@ -568,13 +642,21 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
             coordinator.removeAnnotation(id: id)
         case .body(let id):
             guard let annotation = annotation(id: id, displayID: displayID) else { return }
-            drag = Drag(id: id, displayID: displayID, startLocal: local, original: annotation.geometry)
+            drag = Drag(id: id, displayID: displayID, startLocal: local,
+                        original: annotation.geometry, zone: nil)
             switch annotation.geometry {
             case .guideline, .horizontalMeasurement, .verticalMeasurement, .rectangle:
                 if let display = surface.connectedDisplays.first(where: { $0.id == displayID }) {
                     prepareSnapping(on: display)
                 }
             }
+        case .resize(let id, let zone):
+            guard let annotation = annotation(id: id, displayID: displayID),
+                  case .rectangle = annotation.geometry
+            else { return }
+            // Resizing has no snap targets; the frozen capture is skipped.
+            drag = Drag(id: id, displayID: displayID, startLocal: local,
+                        original: annotation.geometry, zone: zone)
         }
     }
 
@@ -585,23 +667,30 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
             return
         }
         latestDragPoint = local
-        var geometry = AnnotationEditing.moved(
-                drag.original,
-                dx: local.x - drag.startLocal.x,
-                dy: local.y - drag.startLocal.y,
+        let dx = local.x - drag.startLocal.x
+        let dy = local.y - drag.startLocal.y
+        var geometry: AnnotationGeometry
+        if let zone = drag.zone {
+            geometry = AnnotationEditing.resized(
+                drag.original, zone: zone, dx: dx, dy: dy,
                 within: display.logicalBounds.size
             )
-        if commandHeld() {
-            // Release any held edges without discarding the image, so snapping
-            // can resume as soon as Command is released during this drag.
-            snappedEdges.removeAll()
-        } else if let snapImage {
-            let siblings = groups.first(where: { $0.display.id == displayID })?
-                .annotations.filter { $0.id != drag.id } ?? []
-            geometry = applySnapping(
-                to: geometry, pointer: local, image: snapImage, siblings: siblings,
-                size: display.logicalBounds.size
+        } else {
+            geometry = AnnotationEditing.moved(
+                drag.original, dx: dx, dy: dy, within: display.logicalBounds.size
             )
+            if commandHeld() {
+                // Release any held edges without discarding the image, so snapping
+                // can resume as soon as Command is released during this drag.
+                snappedEdges.removeAll()
+            } else if let snapImage {
+                let siblings = groups.first(where: { $0.display.id == displayID })?
+                    .annotations.filter { $0.id != drag.id } ?? []
+                geometry = applySnapping(
+                    to: geometry, pointer: local, image: snapImage, siblings: siblings,
+                    size: display.logicalBounds.size
+                )
+            }
         }
         coordinator.updateAnnotationGeometry(id: drag.id, geometry: geometry)
     }
