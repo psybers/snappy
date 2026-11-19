@@ -61,7 +61,10 @@ final class DisplayManager: ObservableObject, MeasurementDisplayProviding, Annot
     func showToleranceToast(_ settings: EdgeToleranceSettings, at pointer: Point2D) {
         guard let display = connectedDisplays.first(where: { $0.logicalBounds.contains(pointer) }) else { return }
         for panel in overlayWindows.values { panel.annotationView?.setToast(nil) }
-        overlayWindows[display.id]?.annotationView?.setToast("Tolerance: \(settings.level.title) (\(settings.value))")
+        let text = settings.temporaryValue != nil
+            ? "Tolerance: \(settings.value) (temporary)"
+            : "Tolerance: \(settings.level.title) (\(settings.value))"
+        overlayWindows[display.id]?.annotationView?.setToast(text)
     }
     private weak var mouseHandler: AnnotationMouseHandling?
     private var capturesMouse = false

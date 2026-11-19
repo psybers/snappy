@@ -79,7 +79,62 @@ final class PreferencesStore: ObservableObject {
     }
 
     func setEdgeToleranceLevel(_ level: EdgeToleranceLevel) {
-        update { $0.edgeTolerance.level = level }
+        update {
+            $0.edgeTolerance.level = level
+            $0.edgeTolerance.temporaryValue = nil
+        }
+    }
+
+    /// Steps the tolerance selection. `step == 0` cycles levels with
+    /// wraparound (T); ±1 moves without wrapping (-/=). While a temporary
+    /// nudge is active, - and = instead jump to the nearest preset value
+    /// below/above the effective value, since the level index no longer
+    /// describes where the value sits.
+    func stepEdgeTolerance(by step: Int, wrapping: Bool) {
+        let settings = preferences.edgeTolerance
+        if step != 0 && !wrapping, settings.temporaryValue != nil {
+            var presets: [(level: EdgeToleranceLevel, value: Int)] = []
+            for level in EdgeToleranceLevel.allCases {
+                let value = settings.presetValue(for: level)
+                if !presets.contains(where: { $0.value == value }) {
+                    presets.append((level, value))
+                }
+            }
+            presets.sort { $0.value < $1.value }
+            let target = step < 0
+                ? presets.last(where: { $0.value < settings.value })
+                : presets.first(where: { $0.value > settings.value })
+            guard let target else { return }
+            setEdgeToleranceLevel(target.level)
+            return
+        }
+        let current = settings.level
+        let next = current.adjusted(by: step == 0 ? 1 : step, wrapping: wrapping)
+        guard next != current else { return }
+        setEdgeToleranceLevel(next)
+    }
+
+    /// Nudges the effective tolerance by `delta` for this session only. The
+    /// change is published (toast, rescan) but deliberately not written to
+    /// defaults, and landing on a preset value reselects that preset.
+    func adjustTemporaryEdgeTolerance(by delta: Int) {
+        var settings = preferences.edgeTolerance
+        let current = settings.value
+        let updated = min(max(current + delta, 0), 100)
+        guard updated != current else { return }
+        let presets: [(EdgeToleranceLevel, Int)] = [
+            (.zero, 0), (.low, settings.low), (.medium, settings.medium), (.high, settings.high),
+        ]
+        if let match = presets.first(where: { $0.0 == settings.level && $0.1 == updated })?.0
+            ?? presets.first(where: { $0.1 == updated })?.0
+        {
+            settings.level = match
+            settings.temporaryValue = nil
+        } else {
+            settings.temporaryValue = updated
+        }
+        preferences.edgeTolerance = settings
+        validationMessage = nil
     }
 
     func setEdgeToleranceValue(_ value: Int, for level: EdgeToleranceLevel) {
@@ -94,6 +149,7 @@ final class PreferencesStore: ObservableObject {
             validationMessage = "Use values from 1 to 100, with Low ≤ Medium ≤ High."
             return
         }
+        settings.temporaryValue = nil
         update { $0.edgeTolerance = settings }
     }
 

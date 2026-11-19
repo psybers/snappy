@@ -18,6 +18,28 @@ final class MeasurementCoordinatorTests: XCTestCase {
         XCTAssertEqual(adjustments, [0, -1, 1])
     }
 
+    func testOptionToleranceKeysEmitTemporaryAdjustments() {
+        let coordinator = MeasurementCoordinator()
+        var nudges: [Int] = []
+        let subscription = coordinator.temporaryToleranceAdjustments.sink { nudges.append($0) }
+        defer { subscription.cancel() }
+        coordinator.keyDown(key: "-", keyCode: 27, modifiers: [.option])
+        XCTAssertTrue(nudges.isEmpty)
+        coordinator.startFreshSession(displays: [], pointer: Point2D(x: 50, y: 50))
+        coordinator.keyDown(key: "-", keyCode: 27, modifiers: [.option])
+        coordinator.keyDown(key: "=", keyCode: 24, modifiers: [.option])
+        coordinator.keyDown(key: "-", keyCode: 27, modifiers: [.option, .shift])
+        coordinator.keyDown(key: "=", keyCode: 24, modifiers: [.command])
+        XCTAssertEqual(nudges, [-1, 1])
+
+        let service = GlobalShortcutService(
+            coordinator: coordinator, inputMonitor: .shared,
+            displayManager: .shared, preferencesStore: .shared)
+        service.handleHotKey(identifier: 0xA10) // Option+-
+        service.handleHotKey(identifier: 0xA11) // Option+=
+        XCTAssertEqual(nudges, [-1, 1, -1, 1])
+    }
+
     func testHeldArrowRepeatsUntilReleasedOrMeasurementStops() {
         var moveCount = 0
         let coordinator = MeasurementCoordinator { point, dx, dy in

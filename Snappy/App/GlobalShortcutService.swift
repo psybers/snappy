@@ -56,25 +56,28 @@ final class GlobalShortcutService: ObservableObject {
     private var arrowRepeatTimer: Timer?
     private var repeatingArrowID: UInt32?
     // Carbon hotkeys need no Accessibility/Input Monitoring permission, unlike global key monitors.
-    private static let annotationKeys: [UInt32: (key: String, code: Int, shift: Bool)] = [
-        0xA01: ("h", kVK_ANSI_H, false),
-        0xA02: ("v", kVK_ANSI_V, false),
-        0xA03: ("h", kVK_ANSI_H, true),
-        0xA04: ("v", kVK_ANSI_V, true),
-        0xA05: ("", kVK_LeftArrow, false),
-        0xA06: ("", kVK_RightArrow, false),
-        0xA07: ("", kVK_DownArrow, false),
-        0xA08: ("", kVK_UpArrow, false),
-        0xA09: ("", kVK_LeftArrow, true),
-        0xA0A: ("", kVK_RightArrow, true),
-        0xA0B: ("", kVK_DownArrow, true),
-        0xA0C: ("", kVK_UpArrow, true),
-        0xA0D: ("t", kVK_ANSI_T, false),
-        0xA0E: ("-", kVK_ANSI_Minus, false),
-        0xA0F: ("=", kVK_ANSI_Equal, false),
+    private static let annotationKeys: [UInt32: (key: String, code: Int, modifiers: Set<ShortcutModifier>)] = [
+        0xA01: ("h", kVK_ANSI_H, []),
+        0xA02: ("v", kVK_ANSI_V, []),
+        0xA03: ("h", kVK_ANSI_H, [.shift]),
+        0xA04: ("v", kVK_ANSI_V, [.shift]),
+        0xA05: ("", kVK_LeftArrow, []),
+        0xA06: ("", kVK_RightArrow, []),
+        0xA07: ("", kVK_DownArrow, []),
+        0xA08: ("", kVK_UpArrow, []),
+        0xA09: ("", kVK_LeftArrow, [.shift]),
+        0xA0A: ("", kVK_RightArrow, [.shift]),
+        0xA0B: ("", kVK_DownArrow, [.shift]),
+        0xA0C: ("", kVK_UpArrow, [.shift]),
+        0xA0D: ("t", kVK_ANSI_T, []),
+        0xA0E: ("-", kVK_ANSI_Minus, []),
+        0xA0F: ("=", kVK_ANSI_Equal, []),
+        0xA10: ("-", kVK_ANSI_Minus, [.option]),
+        0xA11: ("=", kVK_ANSI_Equal, [.option]),
     ]
     private var modeSubscription: AnyCancellable?
     private var toleranceSubscription: AnyCancellable?
+    private var temporaryToleranceSubscription: AnyCancellable?
     private static let escapeHotKeyID: UInt32 = 0xE5C
     /// Returns true when measuring may start; otherwise it triggers the system permission prompt.
     var screenAccessGate: () async -> Bool = {
@@ -107,11 +110,10 @@ final class GlobalShortcutService: ObservableObject {
         isStarted = true
         installCarbonHandler()
         toleranceSubscription = coordinator.toleranceAdjustments.sink { [weak self] step in
-            guard let self else { return }
-            let current = preferencesStore.preferences.edgeTolerance.level
-            let next = current.adjusted(by: step == 0 ? 1 : step, wrapping: step == 0)
-            guard next != current else { return }
-            preferencesStore.setEdgeToleranceLevel(next)
+            self?.preferencesStore.stepEdgeTolerance(by: step, wrapping: step == 0)
+        }
+        temporaryToleranceSubscription = coordinator.temporaryToleranceAdjustments.sink { [weak self] delta in
+            self?.preferencesStore.adjustTemporaryEdgeTolerance(by: delta)
         }
         modeSubscription = coordinator.$mode
             .map(\.isActive)
@@ -136,6 +138,8 @@ final class GlobalShortcutService: ObservableObject {
         modeSubscription = nil
         toleranceSubscription?.cancel()
         toleranceSubscription = nil
+        temporaryToleranceSubscription?.cancel()
+        temporaryToleranceSubscription = nil
         setEscapeHotKey(enabled: false)
         unregisterHotKey()
         guard hotKey == nil, retiredHotKeys.isEmpty else { return }
@@ -171,7 +175,7 @@ final class GlobalShortcutService: ObservableObject {
             coordinator.keyDown(
                 key: entry.key,
                 keyCode: UInt16(entry.code),
-                modifiers: entry.shift ? [.shift] : []
+                modifiers: entry.modifiers
             )
             return
         }
@@ -205,7 +209,7 @@ final class GlobalShortcutService: ObservableObject {
             return
         }
         coordinator.keyDown(key: entry.key, keyCode: UInt16(entry.code),
-                            modifiers: NSEvent.modifierFlags.contains(.shift) ? [.shift] : [])
+                            modifiers: entry.modifiers)
     }
 
     private func beginMeasuring() {
@@ -325,9 +329,12 @@ final class GlobalShortcutService: ObservableObject {
             guard eventHandler != nil else { return }
             for (id, entry) in Self.annotationKeys where annotationHotKeys[id] == nil {
                 var candidate: EventHotKeyRef?
+                var hotKeyModifiers: UInt32 = 0
+                if entry.modifiers.contains(.shift) { hotKeyModifiers |= UInt32(shiftKey) }
+                if entry.modifiers.contains(.option) { hotKeyModifiers |= UInt32(optionKey) }
                 let status = RegisterEventHotKey(
                     UInt32(entry.code),
-                    entry.shift ? UInt32(shiftKey) : 0,
+                    hotKeyModifiers,
                     EventHotKeyID(signature: Self.signature, id: id),
                     GetApplicationEventTarget(),
                     0,

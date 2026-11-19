@@ -58,8 +58,15 @@ struct EdgeToleranceSettings: Codable, Equatable {
     var low = 4
     var medium = 8
     var high = 16
+    /// Session-only nudge applied on top of the presets; never encoded, so it
+    /// cannot leak into saved preferences.
+    var temporaryValue: Int? = nil
 
-    var value: Int {
+    enum CodingKeys: String, CodingKey {
+        case level, low, medium, high
+    }
+
+    func presetValue(for level: EdgeToleranceLevel) -> Int {
         switch level {
         case .zero: 0
         case .low: low
@@ -68,11 +75,18 @@ struct EdgeToleranceSettings: Codable, Equatable {
         }
     }
 
+    var value: Int {
+        temporaryValue ?? presetValue(for: level)
+    }
+
     func validated() -> Self {
         var result = self
         if !(1...100).contains(low) { result.low = 4 }
         if !(result.low...100).contains(medium) { result.medium = max(8, result.low) }
         if !(result.medium...100).contains(high) { result.high = max(16, result.medium) }
+        if let temporaryValue, !(0...100).contains(temporaryValue) {
+            result.temporaryValue = nil
+        }
         return result
     }
 }

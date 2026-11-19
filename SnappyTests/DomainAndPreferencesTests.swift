@@ -45,6 +45,108 @@ final class DomainAndPreferencesTests: XCTestCase {
         XCTAssertEqual(store.preferences.edgeTolerance.value, 25)
     }
 
+    func testTemporaryToleranceNudgesWithoutPersisting() {
+        let suiteName = "SnappyTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = PreferencesStore(defaults: defaults)
+
+        store.adjustTemporaryEdgeTolerance(by: 1)
+        XCTAssertEqual(store.preferences.edgeTolerance.value, 9)
+        XCTAssertEqual(store.preferences.edgeTolerance.level, .medium)
+        XCTAssertEqual(store.preferences.edgeTolerance.temporaryValue, 9)
+
+        // Landing back on the Medium preset stops tracking a temporary value.
+        store.adjustTemporaryEdgeTolerance(by: -1)
+        XCTAssertEqual(store.preferences.edgeTolerance.value, 8)
+        XCTAssertNil(store.preferences.edgeTolerance.temporaryValue)
+        XCTAssertEqual(store.preferences.edgeTolerance.level, .medium)
+
+        // The nudge is session-only: a fresh store on the same defaults
+        // never sees it, even after unrelated preference writes.
+        store.adjustTemporaryEdgeTolerance(by: 3)
+        store.setMeasurementColor(.measurementDefault)
+        let restored = PreferencesStore(defaults: defaults)
+        XCTAssertNil(restored.preferences.edgeTolerance.temporaryValue)
+        XCTAssertEqual(restored.preferences.edgeTolerance.value, 8)
+
+        // Bounds clamp at 0 and 100; hitting a preset reselects it.
+        store.setEdgeToleranceLevel(.zero)
+        store.adjustTemporaryEdgeTolerance(by: -5)
+        XCTAssertEqual(store.preferences.edgeTolerance.value, 0)
+        XCTAssertEqual(store.preferences.edgeTolerance.level, .zero)
+        for _ in 0..<120 { store.adjustTemporaryEdgeTolerance(by: 1) }
+        XCTAssertEqual(store.preferences.edgeTolerance.value, 100)
+        XCTAssertEqual(store.preferences.edgeTolerance.temporaryValue, 100)
+
+        // Choosing a preset level or editing preset values clears the nudge.
+        store.setEdgeToleranceLevel(.low)
+        XCTAssertNil(store.preferences.edgeTolerance.temporaryValue)
+        store.adjustTemporaryEdgeTolerance(by: 2)
+        store.setEdgeToleranceValue(6, for: .low)
+        XCTAssertNil(store.preferences.edgeTolerance.temporaryValue)
+    }
+
+    func testPresetStepFromTemporaryValueJumpsToBracketingPreset() {
+        let suiteName = "SnappyTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = PreferencesStore(defaults: defaults)
+
+        // Medium=32, High=54; select High then nudge down to 48.
+        store.setEdgeToleranceValue(54, for: .high)
+        store.setEdgeToleranceValue(32, for: .medium)
+        store.setEdgeToleranceLevel(.high)
+        for _ in 0..<6 { store.adjustTemporaryEdgeTolerance(by: -1) }
+        XCTAssertEqual(store.preferences.edgeTolerance.value, 48)
+        XCTAssertEqual(store.preferences.edgeTolerance.temporaryValue, 48)
+
+        // '-' jumps to the preset below the nudge, '=' to the one above.
+        store.stepEdgeTolerance(by: -1, wrapping: false)
+        XCTAssertEqual(store.preferences.edgeTolerance.level, .medium)
+        XCTAssertEqual(store.preferences.edgeTolerance.value, 32)
+        XCTAssertNil(store.preferences.edgeTolerance.temporaryValue)
+
+        store.setEdgeToleranceLevel(.high)
+        for _ in 0..<6 { store.adjustTemporaryEdgeTolerance(by: -1) }
+        store.stepEdgeTolerance(by: 1, wrapping: false)
+        XCTAssertEqual(store.preferences.edgeTolerance.level, .high)
+        XCTAssertEqual(store.preferences.edgeTolerance.value, 54)
+        XCTAssertNil(store.preferences.edgeTolerance.temporaryValue)
+
+        // Without a nudge, stepping still moves the level index.
+        store.stepEdgeTolerance(by: -1, wrapping: false)
+        XCTAssertEqual(store.preferences.edgeTolerance.level, .medium)
+        store.stepEdgeTolerance(by: 1, wrapping: true)
+        XCTAssertEqual(store.preferences.edgeTolerance.level, .high)
+
+        // Nudged above every preset: T still cycles levels and clears the nudge.
+        store.setEdgeToleranceLevel(.high)
+        for _ in 0..<10 { store.adjustTemporaryEdgeTolerance(by: 1) }
+        XCTAssertEqual(store.preferences.edgeTolerance.temporaryValue, 64)
+        store.stepEdgeTolerance(by: 0, wrapping: true)
+        XCTAssertEqual(store.preferences.edgeTolerance.level, .zero)
+        XCTAssertEqual(store.preferences.edgeTolerance.value, 0)
+        XCTAssertNil(store.preferences.edgeTolerance.temporaryValue)
+
+        // With no preset above the nudge, '=' is a no-op and keeps the nudge.
+        store.setEdgeToleranceLevel(.high)
+        for _ in 0..<10 { store.adjustTemporaryEdgeTolerance(by: 1) }
+        store.stepEdgeTolerance(by: 1, wrapping: false)
+        XCTAssertEqual(store.preferences.edgeTolerance.temporaryValue, 64)
+        XCTAssertEqual(store.preferences.edgeTolerance.level, .high)
+    }
+
+    func testTemporaryToleranceIsNotEncoded() throws {
+        var settings = EdgeToleranceSettings()
+        settings.temporaryValue = 11
+        let data = try JSONEncoder().encode(settings)
+        let decoded = try JSONDecoder().decode(EdgeToleranceSettings.self, from: data)
+        XCTAssertNil(decoded.temporaryValue)
+        XCTAssertEqual(decoded.value, 8)
+        XCTAssertFalse(String(decoding: data, as: UTF8.self).contains("temporaryValue"))
+    }
+
     func testDisplayCoordinatesRoundTripWithNegativeOrigin() {
         let display = Rect2D(x: -1920, y: 120, width: 1920, height: 1080)
         let global = Point2D(x: -1810, y: 250)

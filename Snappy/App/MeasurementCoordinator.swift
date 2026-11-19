@@ -52,6 +52,7 @@ final class MeasurementCoordinator: ObservableObject {
 
     let commands = PassthroughSubject<MeasurementCommand, Never>()
     let toleranceAdjustments = PassthroughSubject<Int, Never>()
+    let temporaryToleranceAdjustments = PassthroughSubject<Int, Never>()
 
     private var ignoresActivationShift = false
 
@@ -207,6 +208,13 @@ final class MeasurementCoordinator: ObservableObject {
             case "t": toleranceAdjustments.send(0); return
             case "-": toleranceAdjustments.send(-1); return
             case "=": toleranceAdjustments.send(1); return
+            default: break
+            }
+        }
+        if modifiers == [.option] {
+            switch key.lowercased() {
+            case "-": temporaryToleranceAdjustments.send(-1); return
+            case "=": temporaryToleranceAdjustments.send(1); return
             default: break
             }
         }
