@@ -58,6 +58,8 @@
 		A100000000000000000000C4 /* GuidelineSnapImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B4 /* GuidelineSnapImage.swift */; };
 		A100000000000000000000B5 /* PixelExtentDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B5 /* PixelExtentDetector.swift */; };
 		A100000000000000000000C5 /* PixelExtentDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B5 /* PixelExtentDetector.swift */; };
+		A100000000000000000000B6 /* ScreenAccessProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B6 /* ScreenAccessProbe.swift */; };
+		A100000000000000000000C6 /* ScreenAccessProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B6 /* ScreenAccessProbe.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -105,6 +107,7 @@
 		B100000000000000000000B3 /* TemporaryMeasurementController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryMeasurementController.swift; sourceTree = "<group>"; };
 		B100000000000000000000B4 /* GuidelineSnapImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidelineSnapImage.swift; sourceTree = "<group>"; };
 		B100000000000000000000B5 /* PixelExtentDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelExtentDetector.swift; sourceTree = "<group>"; };
+		B100000000000000000000B6 /* ScreenAccessProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenAccessProbe.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -153,6 +156,7 @@
 				B1000000000000000000001B /* GlobalInputMonitor.swift */,
 				B1000000000000000000001A /* MeasurementCoordinator.swift */,
 				B1000000000000000000001C /* GlobalShortcutService.swift */,
+				B100000000000000000000B6 /* ScreenAccessProbe.swift */,
 				B1000000000000000000001E /* AccessibilityDetection.swift */,
 				B10000000000000000000021 /* ScreenCaptureDetection.swift */,
 				B100000000000000000000B4 /* GuidelineSnapImage.swift */,
@@ -302,6 +306,7 @@
 				A10000000000000000000016 /* MeasurementCoordinator.swift in Sources */,
 				A10000000000000000000017 /* GlobalInputMonitor.swift in Sources */,
 				A10000000000000000000018 /* GlobalShortcutService.swift in Sources */,
+				A100000000000000000000B6 /* ScreenAccessProbe.swift in Sources */,
 				A1000000000000000000001D /* AccessibilityDetection.swift in Sources */,
 				A10000000000000000000020 /* ScreenCaptureDetection.swift in Sources */,
 				A100000000000000000000B4 /* GuidelineSnapImage.swift in Sources */,
@@ -335,6 +340,7 @@
 				A1000000000000000000001A /* MeasurementCoordinatorTests.swift in Sources */,
 				A1000000000000000000001B /* GlobalInputMonitor.swift in Sources */,
 				A1000000000000000000001C /* GlobalShortcutService.swift in Sources */,
+				A100000000000000000000C6 /* ScreenAccessProbe.swift in Sources */,
 				A1000000000000000000001E /* AccessibilityDetectionTests.swift in Sources */,
 				A1000000000000000000001F /* AccessibilityDetection.swift in Sources */,
 				A10000000000000000000021 /* ScreenCaptureDetection.swift in Sources */,
