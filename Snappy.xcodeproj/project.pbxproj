@@ -57,6 +57,10 @@
 		A100000000000000000000C2 /* OverlayContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B2 /* OverlayContentView.swift */; };
 		A100000000000000000000B3 /* TemporaryMeasurementController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B3 /* TemporaryMeasurementController.swift */; };
 		A100000000000000000000C3 /* TemporaryMeasurementController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B3 /* TemporaryMeasurementController.swift */; };
+		A100000000000000000000B4 /* GuidelineSnapImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B4 /* GuidelineSnapImage.swift */; };
+		A100000000000000000000C4 /* GuidelineSnapImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B4 /* GuidelineSnapImage.swift */; };
+		A100000000000000000000B5 /* PixelExtentDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B5 /* PixelExtentDetector.swift */; };
+		A100000000000000000000C5 /* PixelExtentDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B5 /* PixelExtentDetector.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -104,6 +108,8 @@
 		B100000000000000000000B1 /* ScreenOverlayPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenOverlayPanel.swift; sourceTree = "<group>"; };
 		B100000000000000000000B2 /* OverlayContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayContentView.swift; sourceTree = "<group>"; };
 		B100000000000000000000B3 /* TemporaryMeasurementController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryMeasurementController.swift; sourceTree = "<group>"; };
+		B100000000000000000000B4 /* GuidelineSnapImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidelineSnapImage.swift; sourceTree = "<group>"; };
+		B100000000000000000000B5 /* PixelExtentDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelExtentDetector.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -155,6 +161,8 @@
 				B1000000000000000000001C /* GlobalShortcutService.swift */,
 				B1000000000000000000001E /* AccessibilityDetection.swift */,
 				B10000000000000000000021 /* ScreenCaptureDetection.swift */,
+				B100000000000000000000B4 /* GuidelineSnapImage.swift */,
+				B100000000000000000000B5 /* PixelExtentDetector.swift */,
 				B100000000000000000000B1 /* ScreenOverlayPanel.swift */,
 				B100000000000000000000B2 /* OverlayContentView.swift */,
 				B100000000000000000000B3 /* TemporaryMeasurementController.swift */,
@@ -304,6 +312,8 @@
 				A10000000000000000000018 /* GlobalShortcutService.swift in Sources */,
 				A1000000000000000000001D /* AccessibilityDetection.swift in Sources */,
 				A10000000000000000000020 /* ScreenCaptureDetection.swift in Sources */,
+				A100000000000000000000B4 /* GuidelineSnapImage.swift in Sources */,
+				A100000000000000000000B5 /* PixelExtentDetector.swift in Sources */,
 				A100000000000000000000B1 /* ScreenOverlayPanel.swift in Sources */,
 				A100000000000000000000B2 /* OverlayContentView.swift in Sources */,
 				A100000000000000000000B3 /* TemporaryMeasurementController.swift in Sources */,
@@ -339,6 +349,8 @@
 				A1000000000000000000001F /* AccessibilityDetection.swift in Sources */,
 				A10000000000000000000021 /* ScreenCaptureDetection.swift in Sources */,
 				A10000000000000000000022 /* ScreenCaptureDetectionTests.swift in Sources */,
+				A100000000000000000000C4 /* GuidelineSnapImage.swift in Sources */,
+				A100000000000000000000C5 /* PixelExtentDetector.swift in Sources */,
 				A100000000000000000000C1 /* ScreenOverlayPanel.swift in Sources */,
 				A100000000000000000000C2 /* OverlayContentView.swift in Sources */,
 				A100000000000000000000C3 /* TemporaryMeasurementController.swift in Sources */,
