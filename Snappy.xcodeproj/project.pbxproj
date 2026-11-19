@@ -10,9 +10,6 @@
 		A10000000000000000000001 /* SnappyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* SnappyApp.swift */; };
 		A10000000000000000000002 /* MenuBarContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* MenuBarContent.swift */; };
 		A10000000000000000000003 /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* PreferencesView.swift */; };
-		A10000000000000000000004 /* MenuAvailabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* MenuAvailabilityTests.swift */; };
-		A10000000000000000000005 /* MenuAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* MenuAvailability.swift */; };
-		A10000000000000000000006 /* MenuAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* MenuAvailability.swift */; };
 		A10000000000000000000007 /* DomainModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* DomainModels.swift */; };
 		A10000000000000000000008 /* DisplayCoordinateMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* DisplayCoordinateMapper.swift */; };
 		A10000000000000000000009 /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* AppPreferences.swift */; };
@@ -77,8 +74,6 @@
 		B10000000000000000000001 /* SnappyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnappyApp.swift; sourceTree = "<group>"; };
 		B10000000000000000000002 /* MenuBarContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarContent.swift; sourceTree = "<group>"; };
 		B10000000000000000000003 /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
-		B10000000000000000000004 /* MenuAvailabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuAvailabilityTests.swift; sourceTree = "<group>"; };
-		B10000000000000000000005 /* MenuAvailability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuAvailability.swift; sourceTree = "<group>"; };
 		B10000000000000000000010 /* Snappy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Snappy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B10000000000000000000011 /* SnappyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SnappyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B10000000000000000000012 /* DomainModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainModels.swift; sourceTree = "<group>"; };
@@ -146,7 +141,6 @@
 				B10000000000000000000001 /* SnappyApp.swift */,
 				B10000000000000000000002 /* MenuBarContent.swift */,
 				B10000000000000000000003 /* PreferencesView.swift */,
-				B10000000000000000000005 /* MenuAvailability.swift */,
 				B10000000000000000000050 /* SessionPersistence.swift */,
 				B10000000000000000000060 /* RectangleSelection.swift */,
 				B10000000000000000000040 /* AnnotationInteraction.swift */,
@@ -173,7 +167,6 @@
 		D10000000000000000000003 /* SnappyTests */ = {
 			isa = PBXGroup;
 			children = (
-				B10000000000000000000004 /* MenuAvailabilityTests.swift */,
 				B10000000000000000000052 /* SessionPersistenceTests.swift */,
 				B10000000000000000000062 /* RectangleSelectionTests.swift */,
 				B10000000000000000000070 /* AcceptanceLifecycleTests.swift */,
@@ -297,7 +290,6 @@
 				A10000000000000000000001 /* SnappyApp.swift in Sources */,
 				A10000000000000000000002 /* MenuBarContent.swift in Sources */,
 				A10000000000000000000003 /* PreferencesView.swift in Sources */,
-				A10000000000000000000005 /* MenuAvailability.swift in Sources */,
 				A10000000000000000000050 /* SessionPersistence.swift in Sources */,
 				A10000000000000000000060 /* RectangleSelection.swift in Sources */,
 				A10000000000000000000040 /* AnnotationInteraction.swift in Sources */,
@@ -324,8 +316,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10000000000000000000004 /* MenuAvailabilityTests.swift in Sources */,
-				A10000000000000000000006 /* MenuAvailability.swift in Sources */,
 				A10000000000000000000051 /* SessionPersistence.swift in Sources */,
 				A10000000000000000000061 /* RectangleSelection.swift in Sources */,
 				A10000000000000000000062 /* RectangleSelectionTests.swift in Sources */,
