@@ -356,8 +356,23 @@ enum AnnotationEditing {
         }
     }
 
-    /// Resizes a rectangle by moving the edges named by `zone`, keeping the
-    /// opposite edges fixed and the result inside the display.
+    /// Moves one edge of a 1D span to `moved` while the opposite edge stays
+    /// fixed at `opposite`. Dragging past the opposite edge swaps their
+    /// roles: the dragged edge keeps going and the span grows on the far
+    /// side. The result stays within `[0, limit]` and keeps the minimum
+    /// rectangle dimension.
+    static func resizedSpan(moved: Double, opposite: Double, limit: Double) -> (min: Double, max: Double) {
+        let minimum = minimumRectangleDimension
+        let edge = min(max(moved, 0), limit)
+        if edge <= opposite {
+            return (min(edge, opposite - minimum), opposite)
+        }
+        return (opposite, max(edge, opposite + minimum))
+    }
+
+    /// Resizes a rectangle by moving the edges named by `zone`. An edge may
+    /// be dragged past its opposite edge, in which case the dragged edge
+    /// becomes the opposite side and the rectangle grows the other way.
     static func resized(
         _ geometry: AnnotationGeometry,
         zone: ResizeZone,
@@ -366,25 +381,23 @@ enum AnnotationEditing {
         within size: Size2D
     ) -> AnnotationGeometry {
         guard case .rectangle(let rect) = geometry else { return geometry }
-        let minimum = minimumRectangleDimension
-        func clamp(_ value: Double, _ lower: Double, _ upper: Double) -> Double {
-            min(max(value, lower), max(upper, lower))
-        }
         var minX = rect.minX
         var minY = rect.minY
         var maxX = rect.maxX
         var maxY = rect.maxY
-        if zone.adjustsMinX {
-            minX = clamp(rect.minX + dx, 0, rect.maxX - minimum)
+        if zone.adjustsMinX || zone.adjustsMaxX {
+            let moved = (zone.adjustsMinX ? rect.minX : rect.maxX) + dx
+            let opposite = zone.adjustsMinX ? rect.maxX : rect.minX
+            let span = resizedSpan(moved: moved, opposite: opposite, limit: size.width)
+            minX = span.min
+            maxX = span.max
         }
-        if zone.adjustsMaxX {
-            maxX = clamp(rect.maxX + dx, rect.minX + minimum, size.width)
-        }
-        if zone.adjustsMinY {
-            minY = clamp(rect.minY + dy, 0, rect.maxY - minimum)
-        }
-        if zone.adjustsMaxY {
-            maxY = clamp(rect.maxY + dy, rect.minY + minimum, size.height)
+        if zone.adjustsMinY || zone.adjustsMaxY {
+            let moved = (zone.adjustsMinY ? rect.minY : rect.maxY) + dy
+            let opposite = zone.adjustsMinY ? rect.maxY : rect.minY
+            let span = resizedSpan(moved: moved, opposite: opposite, limit: size.height)
+            minY = span.min
+            maxY = span.max
         }
         return .rectangle(Rect2D(x: minX, y: minY, width: maxX - minX, height: maxY - minY))
     }
@@ -696,7 +709,8 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
             let siblings = groups.first(where: { $0.display.id == displayID })?
                 .annotations.filter { $0.id != drag.id } ?? []
             result = applySnapping(
-                to: geometry, pointer: local, image: snapImage, siblings: siblings,
+                to: geometry, original: drag.original, pointer: local, image: snapImage,
+                siblings: siblings,
                 size: display.logicalBounds.size, resizeZone: drag.zone
             )
         }
@@ -722,6 +736,7 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
     /// vertical bar to a horizontal edge.
     private func applySnapping(
         to geometry: AnnotationGeometry,
+        original: AnnotationGeometry,
         pointer local: Point2D,
         image: GuidelineSnapImage,
         siblings: [MeasurementAnnotation],
@@ -803,8 +818,8 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
         case .rectangle(let rect):
             if let resizeZone {
                 return resizedRectangle(
-                    zone: resizeZone, rect: rect, pointer: local, image: image,
-                    siblings: siblings, size: size
+                    zone: resizeZone, rect: rect, original: original, pointer: local,
+                    image: image, siblings: siblings, size: size
                 )
             }
             // Opposite sides snap independently, but the rectangle only
@@ -841,51 +856,73 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
     /// each seeks targets on its own axis — left/right edges compete for
     /// vertical targets, top/bottom edges for horizontal ones. Untouched
     /// edges never move, and the result keeps the display/minimum-size
-    /// clamps from `AnnotationEditing.resized`.
+    /// rules from `AnnotationEditing.resized`, including dragging an edge
+    /// past its opposite edge to swap sides.
     private func resizedRectangle(
         zone: ResizeZone,
         rect: Rect2D,
+        original: AnnotationGeometry,
         pointer local: Point2D,
         image: GuidelineSnapImage,
         siblings: [MeasurementAnnotation],
         size: Size2D
     ) -> AnnotationGeometry {
         let geometry = AnnotationGeometry.rectangle(rect)
-        let minimum = AnnotationEditing.minimumRectangleDimension
-        func clamp(_ value: Double, _ lower: Double, _ upper: Double) -> Double {
-            min(max(value, lower), max(upper, lower))
+        guard case .rectangle(let originalRect) = original else {
+            return geometry
         }
         func pick(axis: AnnotationAxis, position: Double) -> GuidelineSnapImage.Edge? {
             snapCandidates(axis: axis, position: position, geometry: geometry,
                            siblings: siblings, size: size, pointer: local, image: image)
                 .min { snapScore($0, position) < snapScore($1, position) }
         }
+        /// The edge that kept its drag-start coordinate is stationary; the
+        /// other one is the dragged edge. They swap when the drag crosses
+        /// over, so the zone alone cannot identify the dragged edge.
+        func draggedIsMin(zoneAdjustsMin: Bool, fixedStart: Double,
+                          currentMin: Double, currentMax: Double) -> Bool {
+            if currentMin == fixedStart { return false }
+            if currentMax == fixedStart { return true }
+            return zoneAdjustsMin
+        }
         var minX = rect.minX
         var minY = rect.minY
         var maxX = rect.maxX
         var maxY = rect.maxY
         if zone.adjustsMinX || zone.adjustsMaxX {
-            let position = zone.adjustsMinX ? rect.minX : rect.maxX
+            let fixedStart = zone.adjustsMinX ? originalRect.maxX : originalRect.minX
+            let draggedMin = draggedIsMin(
+                zoneAdjustsMin: zone.adjustsMinX, fixedStart: fixedStart,
+                currentMin: minX, currentMax: maxX)
+            let position = draggedMin ? minX : maxX
             let found = pick(axis: .vertical, position: position)
             recordSnap(.vertical, found)
             if let found {
-                if zone.adjustsMinX {
-                    minX = clamp(found.position, 0, maxX - minimum)
-                } else {
-                    maxX = clamp(found.position, minX + minimum, size.width)
-                }
+                let span = AnnotationEditing.resizedSpan(
+                    moved: found.position,
+                    opposite: draggedMin ? maxX : minX,
+                    limit: size.width
+                )
+                minX = span.min
+                maxX = span.max
             }
         }
         if zone.adjustsMinY || zone.adjustsMaxY {
-            let position = zone.adjustsMinY ? rect.minY : rect.maxY
+            let fixedStart = zone.adjustsMinY ? originalRect.maxY : originalRect.minY
+            let draggedMin = draggedIsMin(
+                zoneAdjustsMin: zone.adjustsMinY, fixedStart: fixedStart,
+                currentMin: minY, currentMax: maxY)
+            let position = draggedMin ? minY : maxY
             let found = pick(axis: .horizontal, position: position)
             recordSnap(.horizontal, found)
             if let found {
-                if zone.adjustsMinY {
-                    minY = clamp(found.position, 0, maxY - minimum)
-                } else {
-                    maxY = clamp(found.position, minY + minimum, size.height)
-                }
+                let span = AnnotationEditing.resizedSpan(
+                    moved: found.position,
+                    opposite: draggedMin ? maxY : minY,
+                    limit: size.height
+                )
+                minY = span.min
+                maxY = span.max
             }
         }
         return .rectangle(Rect2D(x: minX, y: minY, width: maxX - minX, height: maxY - minY))

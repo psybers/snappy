@@ -505,10 +505,36 @@ final class AnnotationInteractionTests: XCTestCase {
             AnnotationEditing.resized(geometry, zone: .bottom, dx: 0, dy: -500, within: size),
             .rectangle(Rect2D(x: 100, y: 0, width: 300, height: 300))
         )
-        // A 1pt minimum dimension is enforced.
+        // Dragging an edge past its opposite edge swaps sides: the dragged
+        // edge keeps going and the rectangle grows on the far side.
         XCTAssertEqual(
             AnnotationEditing.resized(geometry, zone: .right, dx: -500, dy: 0, within: size),
+            .rectangle(Rect2D(x: 0, y: 100, width: 100, height: 200))
+        )
+        XCTAssertEqual(
+            AnnotationEditing.resized(geometry, zone: .right, dx: -350, dy: 0, within: size),
+            .rectangle(Rect2D(x: 50, y: 100, width: 50, height: 200))
+        )
+        XCTAssertEqual(
+            AnnotationEditing.resized(geometry, zone: .left, dx: 350, dy: 0, within: size),
+            .rectangle(Rect2D(x: 400, y: 100, width: 50, height: 200))
+        )
+        XCTAssertEqual(
+            AnnotationEditing.resized(geometry, zone: .top, dx: 0, dy: -250, within: size),
+            .rectangle(Rect2D(x: 100, y: 50, width: 300, height: 50))
+        )
+        XCTAssertEqual(
+            AnnotationEditing.resized(geometry, zone: .bottom, dx: 0, dy: 250, within: size),
+            .rectangle(Rect2D(x: 100, y: 300, width: 300, height: 50))
+        )
+        // A 1pt minimum dimension is enforced on both sides of the swap.
+        XCTAssertEqual(
+            AnnotationEditing.resized(geometry, zone: .right, dx: -299, dy: 0, within: size),
             .rectangle(Rect2D(x: 100, y: 100, width: 1, height: 200))
+        )
+        XCTAssertEqual(
+            AnnotationEditing.resized(geometry, zone: .right, dx: -302, dy: 0, within: size),
+            .rectangle(Rect2D(x: 98, y: 100, width: 2, height: 200))
         )
     }
 
