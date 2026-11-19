@@ -51,19 +51,29 @@ final class TemporaryMeasurementOverlayView: NSView {
         }
     }
 
+    /// Rounded dark pill with centered white text; every overlay label uses this.
+    private func drawPill(_ text: String, in rect: NSRect, font: NSFont, fill: NSColor) {
+        fill.setFill()
+        NSBezierPath(roundedRect: rect, xRadius: roundRadius, yRadius: roundRadius).fill()
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: NSColor.white,
+        ]
+        let size = (text as NSString).size(withAttributes: attributes)
+        (text as NSString).draw(
+            at: NSPoint(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2),
+            withAttributes: attributes
+        )
+    }
+
     private func drawToast() {
         guard let toastText else { return }
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 15, weight: .medium),
-            .foregroundColor: NSColor.white
-        ]
+        let font = NSFont.systemFont(ofSize: 15, weight: .medium)
+        let attributes: [NSAttributedString.Key: Any] = [.font: font]
         let size = (toastText as NSString).size(withAttributes: attributes)
         let rect = NSRect(x: bounds.midX - (size.width + 32) / 2,
                           y: bounds.minY + 60, width: size.width + 32, height: size.height + 20)
-        NSColor.black.withAlphaComponent(0.85).setFill()
-        NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10).fill()
-        (toastText as NSString).draw(at: NSPoint(x: rect.minX + 16, y: rect.minY + 10),
-                                   withAttributes: attributes)
+        drawPill(toastText, in: rect, font: font, fill: NSColor.black.withAlphaComponent(0.85))
     }
     private let roundRadius = 10.0
     private let bgFillAlpha = 0.6
@@ -168,63 +178,12 @@ final class TemporaryMeasurementOverlayView: NSView {
 
         // Draw guideline distance labels whenever guidelines are present
         // Only show labels for axes that actually have guidelines
-        let hasHorizontalGuidelines = annotations.contains { annotation in
-            if case .guideline(.horizontal, _) = annotation.geometry { return true }
-            return false
-        }
-        let hasVerticalGuidelines = annotations.contains { annotation in
-            if case .guideline(.vertical, _) = annotation.geometry { return true }
-            return false
-        }
-
-        if hasHorizontalGuidelines {
-            let menuBarHeight = NSApp.mainMenu?.menuBarHeight ?? 0
-            let distanceLabels = AnnotationLayout.guidelineDistanceLabels(
-                for: annotations,
-                axis: .horizontal,
-                displayBounds: displayBounds,
-                fontSize: fontSize,
-                menuBarHeight: menuBarHeight
-            )
-            for (region, text) in distanceLabels {
-                let labelRect = NSRect(x: region.minX, y: region.minY, width: region.size.width, height: region.size.height)
-                NSColor.black.withAlphaComponent(bgFillAlpha).setFill()
-                NSBezierPath(roundedRect: labelRect, xRadius: roundRadius, yRadius: roundRadius).fill()
-                let attributes: [NSAttributedString.Key: Any] = [
-                    .font: NSFont.systemFont(ofSize: fontSize),
-                    .foregroundColor: NSColor.white,
-                ]
-                let size = (text as NSString).size(withAttributes: attributes)
-                (text as NSString).draw(
-                    at: NSPoint(x: labelRect.midX - size.width / 2, y: labelRect.midY - size.height / 2),
-                    withAttributes: attributes
-                )
-            }
-        }
-
-        if hasVerticalGuidelines {
-            let menuBarHeight = NSApp.mainMenu?.menuBarHeight ?? 0
-            let distanceLabels = AnnotationLayout.guidelineDistanceLabels(
-                for: annotations,
-                axis: .vertical,
-                displayBounds: displayBounds,
-                fontSize: fontSize,
-                menuBarHeight: menuBarHeight
-            )
-            for (region, text) in distanceLabels {
-                let labelRect = NSRect(x: region.minX, y: region.minY, width: region.size.width, height: region.size.height)
-                NSColor.black.withAlphaComponent(bgFillAlpha).setFill()
-                NSBezierPath(roundedRect: labelRect, xRadius: roundRadius, yRadius: roundRadius).fill()
-                let attributes: [NSAttributedString.Key: Any] = [
-                    .font: NSFont.systemFont(ofSize: fontSize),
-                    .foregroundColor: NSColor.white,
-                ]
-                let size = (text as NSString).size(withAttributes: attributes)
-                (text as NSString).draw(
-                    at: NSPoint(x: labelRect.midX - size.width / 2, y: labelRect.midY - size.height / 2),
-                    withAttributes: attributes
-                )
-            }
+        for axis in [AnnotationAxis.horizontal, .vertical] {
+            guard annotations.contains(where: { annotation in
+                if case .guideline(let gAxis, _) = annotation.geometry { return gAxis == axis }
+                return false
+            }) else { continue }
+            drawGuidelineDistanceLabels(axis: axis, displayBounds: displayBounds, fontSize: fontSize)
         }
 
         for annotation in annotations {
@@ -271,21 +230,33 @@ final class TemporaryMeasurementOverlayView: NSView {
             if let text = AnnotationLayout.labelText(for: annotation.geometry),
                 let rect = AnnotationLayout.labelRect(for: annotation.geometry, fontSize: fontSize, displaySize: Size2D(width: bounds.width, height: bounds.height))
             {
-                let labelRect = NSRect(x: rect.minX, y: rect.minY, width: rect.size.width, height: rect.size.height)
                 let deleting = hover == .label(annotation.id)
-                (deleting ? NSColor.systemRed : NSColor.black.withAlphaComponent(bgFillAlpha)).setFill()
-                NSBezierPath(roundedRect: labelRect, xRadius: roundRadius, yRadius: roundRadius).fill()
-                let shown = deleting ? "✕" : text
-                let attributes: [NSAttributedString.Key: Any] = [
-                    .font: NSFont.systemFont(ofSize: fontSize),
-                    .foregroundColor: NSColor.white,
-                ]
-                let size = (shown as NSString).size(withAttributes: attributes)
-                (shown as NSString).draw(
-                    at: NSPoint(x: labelRect.midX - size.width / 2, y: labelRect.midY - size.height / 2),
-                    withAttributes: attributes
+                drawPill(
+                    deleting ? "✕" : text,
+                    in: NSRect(x: rect.minX, y: rect.minY, width: rect.size.width, height: rect.size.height),
+                    font: NSFont.systemFont(ofSize: fontSize),
+                    fill: deleting ? NSColor.systemRed : NSColor.black.withAlphaComponent(bgFillAlpha)
                 )
             }
+        }
+    }
+
+    private func drawGuidelineDistanceLabels(axis: AnnotationAxis, displayBounds: Rect2D, fontSize: Double) {
+        let menuBarHeight = NSApp.mainMenu?.menuBarHeight ?? 0
+        let distanceLabels = AnnotationLayout.guidelineDistanceLabels(
+            for: annotations,
+            axis: axis,
+            displayBounds: displayBounds,
+            fontSize: fontSize,
+            menuBarHeight: menuBarHeight
+        )
+        for (region, text) in distanceLabels {
+            drawPill(
+                text,
+                in: NSRect(x: region.minX, y: region.minY, width: region.size.width, height: region.size.height),
+                font: NSFont.systemFont(ofSize: fontSize),
+                fill: NSColor.black.withAlphaComponent(bgFillAlpha)
+            )
         }
     }
 
@@ -506,19 +477,15 @@ final class TemporaryMeasurementOverlayView: NSView {
         preferences: AppPreferences
     ) {
         let font = NSFont.systemFont(ofSize: preferences.dimensionLabelFontSize)
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: NSColor.white,
-        ]
+        let attributes: [NSAttributedString.Key: Any] = [.font: font]
         let textSize = (text as NSString).size(withAttributes: attributes)
         let labelSize = NSSize(width: textSize.width + 10, height: textSize.height + 6)
         let origin = TemporaryDimensionLabels.origin(pointer: pointer, labelSize: labelSize, in: bounds)
-        let labelRect = NSRect(origin: origin, size: labelSize)
-        NSColor.black.withAlphaComponent(bgFillAlpha).setFill()
-        NSBezierPath(roundedRect: labelRect, xRadius: roundRadius, yRadius: roundRadius).fill()
-        (text as NSString).draw(
-            at: NSPoint(x: labelRect.minX + 5, y: labelRect.minY + 3),
-            withAttributes: attributes
+        drawPill(
+            text,
+            in: NSRect(origin: origin, size: labelSize),
+            font: font,
+            fill: NSColor.black.withAlphaComponent(bgFillAlpha)
         )
     }
 
