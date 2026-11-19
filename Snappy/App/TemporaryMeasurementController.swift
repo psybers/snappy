@@ -70,9 +70,9 @@ final class TemporaryMeasurementController {
         let wasActive = isMeasuringActive
         isMeasuringActive = mode.isActive
         if mode.isActive, !wasActive {
-            (displayManager as? DisplayManager)?.freezeScreens()
+            displayManager.freezeScreens()
         } else if !mode.isActive, wasActive {
-            (displayManager as? DisplayManager)?.unfreezeScreens()
+            displayManager.unfreezeScreens()
         }
         guard case .tracking(let pointer, let shiftHeld) = mode else {
             isShowingCrosshair = false
@@ -209,7 +209,7 @@ final class TemporaryMeasurementController {
         let changed = lastTolerance != nil && lastTolerance != tolerance
         lastTolerance = tolerance
         if changed, let pointer = coordinator.mode.pointer {
-            (displayManager as? DisplayManager)?.showToleranceToast(tolerance, at: pointer)
+            displayManager.showToleranceToast(tolerance, at: pointer)
             // A stationary pointer must be rescanned; discard results from the old threshold.
             detectionTask?.cancel()
             detectionTask = nil

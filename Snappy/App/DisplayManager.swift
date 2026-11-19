@@ -34,6 +34,15 @@ protocol TemporaryMeasurementPresenting: AnyObject {
     )
     func showTemporaryCrosshair(at globalPointer: Point2D, preferences: AppPreferences)
     func clearTemporaryMeasurements()
+    func freezeScreens()
+    func unfreezeScreens()
+    func showToleranceToast(_ settings: EdgeToleranceSettings, at pointer: Point2D)
+}
+
+extension TemporaryMeasurementPresenting {
+    func freezeScreens() {}
+    func unfreezeScreens() {}
+    func showToleranceToast(_ settings: EdgeToleranceSettings, at pointer: Point2D) {}
 }
 
 @MainActor
