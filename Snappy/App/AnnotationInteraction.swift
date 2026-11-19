@@ -570,12 +570,10 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
             guard let annotation = annotation(id: id, displayID: displayID) else { return }
             drag = Drag(id: id, displayID: displayID, startLocal: local, original: annotation.geometry)
             switch annotation.geometry {
-            case .guideline, .horizontalMeasurement, .verticalMeasurement:
+            case .guideline, .horizontalMeasurement, .verticalMeasurement, .rectangle:
                 if let display = surface.connectedDisplays.first(where: { $0.id == displayID }) {
                     prepareSnapping(on: display)
                 }
-            case .rectangle:
-                break
             }
         }
     }
@@ -735,8 +733,34 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
                 ),
                 length: length
             )
-        case .rectangle:
-            return geometry
+        case .rectangle(let rect):
+            // Opposite sides snap independently, but the rectangle only
+            // translates: whichever side finds the better edge wins per axis,
+            // so dragging never resizes it.
+            func bestSide(_ axis: AnnotationAxis, sides: [Double])
+                -> (edge: GuidelineSnapImage.Edge, delta: Double)?
+            {
+                var best: (edge: GuidelineSnapImage.Edge, score: Double, delta: Double)?
+                for side in sides {
+                    for found in snapCandidates(axis: axis, position: side) {
+                        let value = score(found, side)
+                        if best == nil || value < best!.score {
+                            best = (found, value, found.position - side)
+                        }
+                    }
+                }
+                return best.map { ($0.edge, $0.delta) }
+            }
+            let xPick = bestSide(.vertical, sides: [rect.minX, rect.maxX])
+            let yPick = bestSide(.horizontal, sides: [rect.minY, rect.maxY])
+            record(.vertical, xPick?.edge)
+            record(.horizontal, yPick?.edge)
+            return .rectangle(Rect2D(
+                x: clamped(rect.minX + (xPick?.delta ?? 0), size.width - rect.size.width),
+                y: clamped(rect.minY + (yPick?.delta ?? 0), size.height - rect.size.height),
+                width: rect.size.width,
+                height: rect.size.height
+            ))
         }
     }
 
@@ -815,8 +839,11 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
                 return (min(start.y, start.y + length), max(start.y, start.y + length))
             }
             return (start.x, start.x)
-        case .rectangle:
-            return nil
+        case .rectangle(let rect):
+            if axis == .vertical {
+                return (min(rect.minY, rect.maxY), max(rect.minY, rect.maxY))
+            }
+            return (min(rect.minX, rect.maxX), max(rect.minX, rect.maxX))
         }
     }
 
