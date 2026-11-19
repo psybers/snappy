@@ -46,7 +46,7 @@ xattr -d com.apple.quarantine /Applications/Snappy.app
 ## Build and setup
 
 1. Open `Snappy.xcodeproj` in Xcode and build/run the **Snappy** scheme (macOS 26.0+, required for ScreenCaptureKit one-shot region capture).
-2. Run tests: `xcodebuild -project Snappy.xcodeproj -scheme Snappy -destination 'platform=macOS' test` (108 tests).
+2. Run tests: `xcodebuild -project Snappy.xcodeproj -scheme Snappy -destination 'platform=macOS' test`.
 3. Grant permissions on first use (below).
 
 The target is ad-hoc signed, so every rebuild changes its identity. After a rebuild macOS may report the permissions as unavailable: quit Snappy, remove and re-enable its entries in Privacy & Security, and relaunch.
@@ -72,7 +72,7 @@ Preferences explains both permissions, can request them, and opens the matching 
 | `H` / `V` | Pin the current horizontal / vertical measurement |
 | `Shift+H` / `Shift+V` | Add a horizontal / vertical guideline at the pointer (spans that display) |
 | Drag | Select a region (the app underneath does not receive the drag); on release it becomes a persistent rectangle snapped to the content found |
-| Hover a pinned item | Drag measurements, guidelines, and rectangles to move them; rectangles have a faint fill and can be dragged from their outline or interior |
+| Hover a pinned item | Drag measurements, guidelines, and rectangles to move them; drag a rectangle's edges or corners to resize it (minimum 1 pt per edge); rectangles have a faint fill and can be dragged from their outline or interior |
 | Click a measurement or rectangle label (shows ✕) | Delete it |
 | Right-click a guideline | Delete it |
 | `Escape` | Exit measurement mode, save, and clear all annotations |
@@ -81,7 +81,7 @@ Menu: Preferences..., Restore Last Session, Clear Annotations (no confirmation),
 
 Edge tolerance levels are Zero (fixed at 0), Low (4), Medium (8, the default), and High (16). Preferences lets you override Low, Medium, and High with ordered values from 1–100 and choose the active level. These settings persist across launches. Tolerance is the maximum per-channel RGB difference ignored by visual edge detection: higher values ignore more subtle color changes. Option+- and Option+= temporarily nudge the effective value by 1 (clamped to 0–100, never saved); returning to a preset value reselects that preset, and while nudged, - and = jump to the nearest preset below/above the value. Changes rescan the current measurement without moving the pointer and show a brief toast at the bottom center of the pointer's monitor. Accessibility bounds are unaffected.
 
-Dragging a blue guideline or a pinned H/V measurement snaps it to nearby visual edges around the grabbed point and to existing guidelines and pinned bars it crosses. A horizontal measurement snaps its height to horizontal edges and either end to vertical edges; a vertical measurement snaps its position to vertical edges and either end to horizontal edges. Hold Command while dragging to temporarily disable snapping and snap haptic feedback; release Command to resume snapping. Higher-contrast edges attract from farther away (up to 14 points) and hold longer before releasing. Snapping respects the selected edge tolerance and uses the frozen screen while measuring, or one overlay-free capture per drag otherwise. If capture is unavailable, dragged annotations move freely. Sustained contrast across nearby scanlines filters isolated pixels; textured content can still produce imperfect snaps.
+Dragging a blue guideline, a pinned H/V measurement, or a rectangle snaps it to nearby visual edges around the grabbed point (for a rectangle resize, only the dragged edges seek targets) and to existing guidelines and pinned bars it crosses. A horizontal measurement snaps its height to horizontal edges and either end to vertical edges; a vertical measurement snaps its position to vertical edges and either end to horizontal edges. Hold Command while dragging to temporarily disable snapping and snap haptic feedback; release Command to resume snapping. Higher-contrast edges attract from farther away (up to 14 points) and hold longer before releasing. Snapping respects the selected edge tolerance and uses the frozen screen while measuring, or one overlay-free capture per drag otherwise. If capture is unavailable, dragged annotations move freely. Sustained contrast across nearby scanlines filters isolated pixels; textured content can still produce imperfect snaps.
 
 On supported Force Touch trackpads, acquiring a snap requests one alignment haptic pulse, or two brief pulses for stronger edges. Feedback does not continuously repeat while a line stays snapped. Public macOS APIs provide preset patterns rather than intensity control, so stronger feedback is represented by the extra pulse and remains subject to hardware and system preferences.
 
@@ -92,20 +92,6 @@ On supported Force Touch trackpads, acquiring a snap requests one alignment hapt
 - Escape saves the snapshot and then clears annotations. **Clear Annotations** clears the active session but never the snapshot.
 - Pressing the global shortcut while measuring saves and exits measurement mode while keeping annotations visible.
 - **Restore Last Session** loads the snapshot and remaps annotations to connected displays (by ID, then pixel size and scale; geometry is scaled if resolution changed). Annotations for disconnected displays are retained and reappear on reconnect.
-
-## Architecture
-
-All coordinates are AppKit points; annotations are stored display-local (origin at the display's bottom-left). `DisplayCoordinateMapper` converts to/from global, Accessibility (top-left origin) and capture-pixel spaces.
-
-- `DomainModels`, `DisplayCoordinateMapper`: geometry, annotations, sessions.
-- `DisplayManager`: one transparent, borderless, click-through panel per display; draws temporary indicators, annotations and the selection rectangle.
-- `GlobalShortcutService`, `GlobalInputMonitor`, `MeasurementCoordinator`: Carbon hotkeys, global mouse/key events, mode state machine.
-- `AccessibilityDetection`: AX hit-testing with validation. `ScreenCaptureDetection`: ScreenCaptureKit capture (rate-limited to one per 120 ms, Snappy windows excluded), Vision rectangles and `PixelExtentDetector`; `ElementDetectionService` orchestrates AX-first with capture fallback.
-- `RectangleSelection`: drag analysis (AX sampled on a 5x5 grid, then content bounds, then the raw selection).
-- `AnnotationInteraction`: layout, hit-testing, hover, drag with edge/line snapping, delete.
-- `SessionPersistence`: store, display remapper, controller. `AppPreferences`/`PreferencesStore`/`PreferencesView`: settings.
-
-Detection is event-driven (no polling timers); pointer updates are coalesced, one detection at a time, and stale results are discarded.
 
 ## Known limitations
 

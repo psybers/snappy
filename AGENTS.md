@@ -161,6 +161,7 @@ Do not simply snap each edge independently to the nearest visual edge.
 - Display the rectangle outline and its dimensions.
 - Give persistent rectangles a faint transparent red fill.
 - Dragging the outline or filled interior of a persistent rectangle moves it without changing its dimensions.
+- Dragging within the hit tolerance of a rectangle edge or corner resizes it: only the grabbed edges move, opposite edges stay fixed, edges snap to visual edges and pinned lines like a move drag does, and no edge may shrink below 1 point (`ResizeZone`, `AnnotationEditing.resized`, `AnnotationInteractionController.resizedRectangle`). Corner zones show the closed-hand cursor because AppKit exposes no public diagonal resize cursors.
 - Hovering the dimension label shows an X; clicking the X deletes the rectangle.
 - Rectangles remain visible after measurement mode is exited.
 - Rectangles should be independent of horizontal and vertical measurement annotations.
@@ -360,3 +361,50 @@ Include a README documenting:
 - Keyboard shortcuts.
 - Session management behavior.
 - Known limitations.
+
+# 13. Implementation Map (current codebase)
+
+Everything lives in the `Snappy` target under `Snappy/App/` (all files are in one flat group; there are no subdirectories). Tests live in `SnappyTests/` and mirror these concerns. Shared singletons: `DisplayManager`, `MeasurementCoordinator`, `PreferencesStore`, `SessionPersistenceController`, `GlobalInputMonitor`, `GlobalShortcutService`.
+
+## Build, run, test
+
+- Open `Snappy.xcodeproj` in Xcode; build/run the **Snappy** scheme. Deployment target is macOS 26.0 (ScreenCaptureKit one-shot region capture).
+- Tests: `xcodebuild -project Snappy.xcodeproj -scheme Snappy -destination 'platform=macOS' test`
+- The app is a menu-bar agent (`MenuBarExtra`); it has no Dock icon or main window. Preferences opens via the SwiftUI `Settings` scene.
+
+## File responsibilities
+
+| File | Role |
+|---|---|
+| `SnappyApp.swift` | `@main`; `MenuBarExtra` + `Settings` scenes only. |
+| `AppDelegate.swift` | `DisplayLifecycleDelegate`: constructs and starts every controller in `applicationDidFinishLaunching`; tears them down in reverse on quit. This is where the wiring lives — read it first. |
+| `MenuBarContent.swift` | Menu items: Preferences, End Measurement Mode (while active), Restore Last Session, Clear Annotations, Quit. |
+| `DomainModels.swift` | Geometry (`Point2D`, `Size2D`, `Rect2D`), `DisplayDescriptor`, `AnnotationGeometry` (`.horizontalMeasurement`, `.verticalMeasurement`, `.guideline`, `.rectangle`), `MeasurementAnnotation`, `DisplayAnnotations`, `MeasurementSession`, detection result types. All display-local points, origin bottom-left. |
+| `DisplayCoordinateMapper.swift` | Converts between global AppKit, display-local, Accessibility (top-left), and capture-pixel spaces. |
+| `DisplayManager.swift` | `DisplayAnnotationRegistry` + `DisplayManager`: owns one `ScreenOverlayPanel` per display, freezes/unfreezes screen snapshots, routes annotation/temporary/selection presentation. |
+| `ScreenOverlayPanel.swift` | Borderless non-activating `NSPanel` per display (`.screenSaver` level, click-through); `CursorOverride` uses a private CoreGraphics connection property so cursors work while the app is in the background. |
+| `OverlayContentView.swift` | `TemporaryMeasurementOverlayView`: draws everything — temporary measurement indicators, crosshair, persistent annotations, selection rectangle, frozen snapshot, hover states, X delete affordance, and cursor selection. |
+| `GlobalShortcutService.swift` | Carbon `RegisterEventHotKey` for the configurable global hotkey; re-registers on shortcut change; toggles mode (hotkey exit keeps annotations). |
+| `GlobalInputMonitor.swift` | `CGEvent` tap for mouse/keyboard while measuring; moves the real cursor for arrow keys; keyboard-permission refresh. |
+| `MeasurementCoordinator.swift` | Singleton mode state machine (`inactive` / `tracking` / `selecting`), session mutation API (add/update/remove/clear/restore/remap), and `commands`/tolerance subjects consumed by controllers. |
+| `TemporaryMeasurementController.swift` | Subscribes to coordinator mode; throttles detection (min interval, one task at a time, stale-result discard); freezes screens on activation; crosshair mode while Shift is held; rescans + toast on tolerance changes. |
+| `AccessibilityDetection.swift` | `AccessibilityElementDetector` (AX hit-test + bounds validation), `AccessibilityPermissionManager`. |
+| `ScreenCaptureDetection.swift` | `ScreenCaptureKitRegionCapturer` (rate-limited, excludes Snappy windows), `VisualBoundaryDetector`, `ScreenRecordingPermissionManager`, and `ElementDetectionService` — the AX-first/capture-fallback orchestrator behind the `ElementDetecting` protocol. |
+| `PixelExtentDetector.swift` | Scans outward from the pointer for sharp per-channel color changes; returns the uniform area's bounds. Shared by detection and snapping. |
+| `GuidelineSnapImage.swift` | One overlay-free capture per drag; `edge(axis:position:pointer:tolerance:holding:)` finds sustained contrast edges near the grabbed point with hysteresis (attraction radius `3 + 11*strength`, up to ~14 pt). |
+| `RectangleSelection.swift` | `SelectionGeometry`, `ContentBoundsDetector`, `RectangleSelectionService` (AX sampled on a 5x5 grid → CV content bounds → raw selection fallback), `RectangleSelectionController` (temporary drag rect → persistent rectangle on release). |
+| `AnnotationInteraction.swift` | Largest file. `AnnotationLayout`/`AnnotationHitTester`/`AnnotationEditing` (pure geometry shared by rendering and hit-testing), `AnnotationInteractionController` (hover, drag move/resize with edge+line snapping, haptics, delete), `PinnedLineSnapper` (treats guidelines/pinned bars as detectable edges for live measurements). |
+| `SessionPersistence.swift` | `SessionStore` (versioned atomic JSON in `~/Library/Application Support/Snappy/`; `active-session.json` + `last-session.json`; corrupt files renamed `*.corrupt.json`), `SessionRemapper` (matches saved displays to connected ones by ID then characteristics), `SessionPersistenceController` (300 ms debounced autosave, save-on-exit, restore/clear). |
+| `AppPreferences.swift` | Preference value types: `ShortcutConfiguration`, `ColorComponents`, `EdgeToleranceLevel`/`EdgeToleranceSettings`, `AppPreferences`. |
+| `PreferencesStore.swift` | Shared observable store; persists preferences (UserDefaults) and exposes the active `AppPreferences`. |
+| `PreferencesView.swift` | SwiftUI settings view + `PreferencesWindowPresenter` (focuses the settings window on every menu click). |
+| `ScreenAccessProbe.swift` | `CGPreflightScreenCaptureAccess` can stay false after grant until relaunch, so this asks ScreenCaptureKit directly as a fallback probe. |
+
+## Tests
+
+`SnappyTests/` has one file per concern: `DomainAndPreferencesTests`, `DisplayManagerTests`, `MeasurementCoordinatorTests`, `AccessibilityDetectionTests`, `ScreenCaptureDetectionTests`, `RectangleSelectionTests`, `AnnotationInteractionTests`, `SessionPersistenceTests`, `AcceptanceLifecycleTests`. Most types are testable without UI via injected closures/protocols (`ElementDetecting`, `RectangleSelectionAnalyzing`, `AnnotationSurfacePresenting`, `MeasurementDisplayProviding`); prefer extending those seams over adding singletons.
+
+## Known spec/implementation divergences
+
+- Section 6 says exiting preserves annotations; in the implementation **Escape saves then clears all annotations**, while the global hotkey exit keeps them (`SessionPersistenceController` checks `coordinator.keepsAnnotationsOnExit`).
+- Persistent rectangles support edge/corner resizing (see section 5); the original spec described move-only rectangles.
