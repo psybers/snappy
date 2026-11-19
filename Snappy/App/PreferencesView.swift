@@ -97,7 +97,7 @@ struct PreferencesView: View {
                     }
 
                     Button("Open Accessibility Settings") {
-                        openAccessibilitySettings()
+                        openPrivacyPane("Accessibility", query: "Privacy_Accessibility")
                     }
                 }
                 if accessibilityPermissions.isTrusted && !inputMonitor.keyboardMonitoringAvailable {
@@ -121,12 +121,8 @@ struct PreferencesView: View {
                     }
 
                     Button("Open Screen Recording Settings") {
-                        openScreenRecordingSettings()
+                        openPrivacyPane("Screen Recording", query: "Privacy_ScreenCapture")
                     }
-                }
-                if let settingsOpenError {
-                    Text(settingsOpenError)
-                        .foregroundStyle(.red)
                 }
             }
 
@@ -212,25 +208,11 @@ struct PreferencesView: View {
         )
     }
 
-    private func openAccessibilitySettings() {
+    private func openPrivacyPane(_ name: String, query: String) {
         guard let url = URL(
-            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+            string: "x-apple.systempreferences:com.apple.preference.security?\(query)"
         ) else {
-            settingsOpenError = "The Accessibility settings URL is unavailable."
-            return
-        }
-        guard NSWorkspace.shared.open(url) else {
-            settingsOpenError = "System Settings could not be opened."
-            return
-        }
-        settingsOpenError = nil
-    }
-
-    private func openScreenRecordingSettings() {
-        guard let url = URL(
-            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
-        ) else {
-            settingsOpenError = "The Screen Recording settings URL is unavailable."
+            settingsOpenError = "The \(name) settings URL is unavailable."
             return
         }
         guard NSWorkspace.shared.open(url) else {
