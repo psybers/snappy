@@ -170,15 +170,14 @@ Do not simply snap each edge independently to the nearest visual edge.
 
 Pressing the configured global shortcut while measurement mode is active also exits measurement mode and keeps persistent annotations visible.
 
-Pressing Escape exits measurement mode.
+Pressing Escape exits measurement mode and clears all persistent annotations (after saving them to the session snapshot, so they remain recoverable via Restore Last Session).
 
 When measurement mode exits:
 
 - Remove temporary measurement indicators.
 - Remove any temporary rectangle selection.
-- Preserve persistent measurements.
-- Preserve persistent rectangles.
-- Preserve persistent guidelines.
+- On hotkey exit: preserve persistent measurements, rectangles, and guidelines.
+- On Escape: save the session snapshot, then clear all persistent annotations.
 - Return control to the underlying application.
 
 The user should be able to activate measurement mode again without losing existing annotations, subject to the session behavior described below.
@@ -404,7 +403,7 @@ Everything lives in the `Snappy` target under `Snappy/App/` (all files are in on
 
 `SnappyTests/` has one file per concern: `DomainAndPreferencesTests`, `DisplayManagerTests`, `MeasurementCoordinatorTests`, `AccessibilityDetectionTests`, `ScreenCaptureDetectionTests`, `RectangleSelectionTests`, `AnnotationInteractionTests`, `SessionPersistenceTests`, `AcceptanceLifecycleTests`. Most types are testable without UI via injected closures/protocols (`ElementDetecting`, `RectangleSelectionAnalyzing`, `AnnotationSurfacePresenting`, `MeasurementDisplayProviding`); prefer extending those seams over adding singletons.
 
-## Known spec/implementation divergences
+## Notes on exit behavior
 
-- Section 6 says exiting preserves annotations; in the implementation **Escape saves then clears all annotations**, while the global hotkey exit keeps them (`SessionPersistenceController` checks `coordinator.keepsAnnotationsOnExit`).
+- Section 6 documents the two exit paths: the global hotkey keeps annotations (`stop(keepingAnnotations: true)` in `GlobalShortcutService`), while Escape saves the session snapshot and then clears all annotations (`SessionPersistenceController` checks `coordinator.keepsAnnotationsOnExit`).
 - Persistent rectangles support edge/corner resizing (see section 5); the original spec described move-only rectangles.
