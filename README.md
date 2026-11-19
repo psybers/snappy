@@ -4,6 +4,24 @@ Snappy is a native macOS menu-bar screen measurement utility, built with SwiftUI
 
 This was vibe coded with GitHub Copilot. I don't know Swift and had never made a macOS app, so it may be buggy. I want to keep it basic; the current feature set is probably the most I will add. Bug-fix PRs are welcome.
 
+## What it does
+
+Snappy sits in your menu bar and, when you hit a hotkey (Cmd+Shift+F by default), lets you measure anything on screen like a ruler: the size and position of buttons, windows, text, and arbitrary regions. Measurements can be pinned as persistent annotations, blue alignment guidelines can be stretched across a display, and whole regions can be drag-selected into measured rectangles. Everything stays visible until you clear it, and sessions are saved automatically so you can restore them later. It works across multiple monitors and never takes keyboard focus away from the app underneath.
+
+![Snappy with pinned measurements and guidelines](docs/pinned-measurements.gif)
+
+*Press `H`/`V` to pin the current horizontal or vertical measurement, and `Shift+H`/`Shift+V` to drop a blue guideline across the display. Pinned items can be dragged to new positions.*
+
+![Snappy dragging a guideline to snap to an edge](docs/guideline-snap.gif)
+
+*Guidelines snap to nearby visual edges while dragging; hold Command to temporarily disable snapping.*
+
+![Snappy measuring a dragged region as a rectangle](docs/rectangle-select.gif)
+
+*Press and drag to select a region; on release Snappy snaps it to the content found and shows a persistent measured rectangle. Hover its label for the ✕ delete button.*
+
+For the full list of shortcuts, permissions, and session behavior, see [Usage and shortcuts](#usage-and-shortcuts) below. To record the GIFs above, use any screen recorder (e.g. `Cmd+Shift+5` on macOS, or Kap/GIFox) and save them at the paths shown.
+
 ## Installing
 
 The easiest way to install is via Homebrew:
