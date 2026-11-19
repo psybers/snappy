@@ -51,6 +51,12 @@
 		A10000000000000000000062 /* RectangleSelectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000062 /* RectangleSelectionTests.swift */; };
 		A10000000000000000000070 /* AcceptanceLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000070 /* AcceptanceLifecycleTests.swift */; };
 		A10000000000000000000090 /* Snappy/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000090 /* Snappy/Assets.xcassets */; };
+		A100000000000000000000B1 /* ScreenOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B1 /* ScreenOverlayPanel.swift */; };
+		A100000000000000000000C1 /* ScreenOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B1 /* ScreenOverlayPanel.swift */; };
+		A100000000000000000000B2 /* OverlayContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B2 /* OverlayContentView.swift */; };
+		A100000000000000000000C2 /* OverlayContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B2 /* OverlayContentView.swift */; };
+		A100000000000000000000B3 /* TemporaryMeasurementController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B3 /* TemporaryMeasurementController.swift */; };
+		A100000000000000000000C3 /* TemporaryMeasurementController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B3 /* TemporaryMeasurementController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -95,6 +101,9 @@
 		B10000000000000000000062 /* RectangleSelectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RectangleSelectionTests.swift; sourceTree = "<group>"; };
 		B10000000000000000000070 /* AcceptanceLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcceptanceLifecycleTests.swift; sourceTree = "<group>"; };
 		B10000000000000000000090 /* Snappy/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Snappy/Assets.xcassets; sourceTree = "<group>"; };
+		B100000000000000000000B1 /* ScreenOverlayPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenOverlayPanel.swift; sourceTree = "<group>"; };
+		B100000000000000000000B2 /* OverlayContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayContentView.swift; sourceTree = "<group>"; };
+		B100000000000000000000B3 /* TemporaryMeasurementController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryMeasurementController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -146,6 +155,9 @@
 				B1000000000000000000001C /* GlobalShortcutService.swift */,
 				B1000000000000000000001E /* AccessibilityDetection.swift */,
 				B10000000000000000000021 /* ScreenCaptureDetection.swift */,
+				B100000000000000000000B1 /* ScreenOverlayPanel.swift */,
+				B100000000000000000000B2 /* OverlayContentView.swift */,
+				B100000000000000000000B3 /* TemporaryMeasurementController.swift */,
 			);
 			path = Snappy/App;
 			sourceTree = SOURCE_ROOT;
@@ -292,6 +304,9 @@
 				A10000000000000000000018 /* GlobalShortcutService.swift in Sources */,
 				A1000000000000000000001D /* AccessibilityDetection.swift in Sources */,
 				A10000000000000000000020 /* ScreenCaptureDetection.swift in Sources */,
+				A100000000000000000000B1 /* ScreenOverlayPanel.swift in Sources */,
+				A100000000000000000000B2 /* OverlayContentView.swift in Sources */,
+				A100000000000000000000B3 /* TemporaryMeasurementController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -324,6 +339,9 @@
 				A1000000000000000000001F /* AccessibilityDetection.swift in Sources */,
 				A10000000000000000000021 /* ScreenCaptureDetection.swift in Sources */,
 				A10000000000000000000022 /* ScreenCaptureDetectionTests.swift in Sources */,
+				A100000000000000000000C1 /* ScreenOverlayPanel.swift in Sources */,
+				A100000000000000000000C2 /* OverlayContentView.swift in Sources */,
+				A100000000000000000000C3 /* TemporaryMeasurementController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
