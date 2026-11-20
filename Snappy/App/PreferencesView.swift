@@ -54,6 +54,7 @@ struct PreferencesView: View {
             }
         }
         .scenePadding()
+        .background(WindowResizeAnimator(trigger: selectedTab))
         .navigationTitle("Snappy Preferences")
         .background(PreferencesWindowFocus())
         .onAppear {
@@ -377,6 +378,50 @@ struct PreferencesView: View {
             return
         }
         settingsOpenError = nil
+    }
+}
+
+private struct WindowResizeAnimator: NSViewRepresentable {
+    let trigger: PreferencesTab
+
+    func makeNSView(context: Context) -> NSView {
+        NSView()
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        let coordinator = context.coordinator
+        let previousTrigger = coordinator.trigger
+        coordinator.trigger = trigger
+        guard let previousTrigger, previousTrigger != trigger else { return }
+
+        DispatchQueue.main.async { [weak nsView] in
+            guard let nsView,
+                  coordinator.trigger == trigger,
+                  let window = nsView.window,
+                  let contentView = window.contentView else { return }
+
+            contentView.layoutSubtreeIfNeeded()
+            let contentSize = contentView.fittingSize
+            guard contentSize.width > 0, contentSize.height > 0 else { return }
+
+            let frameSize = window.frameRect(
+                forContentRect: NSRect(origin: .zero, size: contentSize)
+            ).size
+            guard abs(window.frame.height - frameSize.height) > 1 else { return }
+
+            var frame = window.frame
+            frame.origin.y += frame.height - frameSize.height
+            frame.size = frameSize
+            window.setFrame(frame, display: true, animate: true)
+        }
+    }
+
+    final class Coordinator {
+        var trigger: PreferencesTab?
     }
 }
 
