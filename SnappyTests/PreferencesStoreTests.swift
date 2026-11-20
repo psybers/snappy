@@ -161,6 +161,56 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(PreferencesStore(defaults: defaults).preferences.pinnedLineThickness, 6)
     }
 
+    func testScopedResetsOnlyTouchTheirOwnSettings() {
+        let suiteName = "SnappyTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = PreferencesStore(defaults: defaults)
+
+        // Customize one setting per tab.
+        store.setShortcutKey("g")
+        store.setModifier(.option, enabled: true)
+        store.setEdgeToleranceValue(20, for: .low)
+        store.setMeasurementColor(ColorComponents(red: 0.1, green: 0.2, blue: 0.3, opacity: 1))
+        store.setDimensionLabelFontSize(24)
+        store.setLineThickness(5, for: \.measurementLineThickness)
+        store.setPinnedLineThicknessLocked(false)
+
+        let customized = store.preferences
+
+        // Shortcut reset leaves tolerance and appearance untouched.
+        store.resetShortcutToDefaults()
+        XCTAssertEqual(store.preferences.shortcut, .default)
+        XCTAssertEqual(store.preferences.edgeTolerance, customized.edgeTolerance)
+        XCTAssertEqual(store.preferences.measurementColor, customized.measurementColor)
+        XCTAssertEqual(store.preferences.dimensionLabelFontSize, customized.dimensionLabelFontSize)
+        XCTAssertEqual(store.preferences.measurementLineThickness, customized.measurementLineThickness)
+
+        // Tolerance reset restores presets and clears any temporary nudge.
+        store.adjustTemporaryEdgeTolerance(by: 3)
+        XCTAssertNotNil(store.preferences.edgeTolerance.temporaryValue)
+        store.resetEdgeToleranceToDefaults()
+        XCTAssertEqual(store.preferences.edgeTolerance, EdgeToleranceSettings())
+        XCTAssertEqual(store.preferences.shortcut, .default)
+        XCTAssertEqual(store.preferences.measurementColor, customized.measurementColor)
+
+        // Appearance reset restores colors, label size, thicknesses, and lock.
+        store.resetAppearanceToDefaults()
+        XCTAssertEqual(store.preferences.measurementColor, .measurementDefault)
+        XCTAssertEqual(store.preferences.guidelineColor, .guidelineDefault)
+        XCTAssertEqual(store.preferences.dimensionLabelFontSize, AppPreferences.default.dimensionLabelFontSize)
+        XCTAssertEqual(store.preferences.measurementLineThickness, 1)
+        XCTAssertEqual(store.preferences.pinnedLineThickness, 1)
+        XCTAssertEqual(store.preferences.guidelineLineThickness, 1)
+        XCTAssertEqual(store.preferences.rectangleLineThickness, 1)
+        XCTAssertTrue(store.preferences.pinnedLineThicknessLocked)
+        XCTAssertEqual(store.preferences.shortcut, .default)
+
+        // Every reset persisted through UserDefaults.
+        let restored = PreferencesStore(defaults: defaults)
+        XCTAssertEqual(restored.preferences, store.preferences)
+    }
+
     func testPreferencesStoreReportsCorruptSavedData() {
         let suiteName = "SnappyTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

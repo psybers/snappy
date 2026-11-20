@@ -13,5 +13,6 @@ struct SnappyApp: App {
         Settings {
             PreferencesView()
         }
+        .windowResizability(.contentMinSize)
     }
 }

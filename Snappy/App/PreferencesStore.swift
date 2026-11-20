@@ -92,6 +92,32 @@ final class PreferencesStore: ObservableObject {
         update { $0 = .default }
     }
 
+    /// Resets only the settings shown on the Shortcuts preferences tab.
+    func resetShortcutToDefaults() {
+        update { $0.shortcut = .default }
+    }
+
+    /// Resets only the settings shown on the Tolerance preferences tab,
+    /// including any session-only temporary nudge.
+    func resetEdgeToleranceToDefaults() {
+        update { $0.edgeTolerance = EdgeToleranceSettings() }
+    }
+
+    /// Resets only the settings shown on the Appearance preferences tab:
+    /// colors, label size, all line thicknesses, and the pinned-line lock.
+    func resetAppearanceToDefaults() {
+        update {
+            $0.measurementColor = .measurementDefault
+            $0.guidelineColor = .guidelineDefault
+            $0.dimensionLabelFontSize = AppPreferences.default.dimensionLabelFontSize
+            $0.measurementLineThickness = AppPreferences.default.measurementLineThickness
+            $0.pinnedLineThickness = AppPreferences.default.pinnedLineThickness
+            $0.guidelineLineThickness = AppPreferences.default.guidelineLineThickness
+            $0.rectangleLineThickness = AppPreferences.default.rectangleLineThickness
+            $0.pinnedLineThicknessLocked = AppPreferences.default.pinnedLineThicknessLocked
+        }
+    }
+
     func setEdgeToleranceLevel(_ level: EdgeToleranceLevel) {
         update {
             $0.edgeTolerance.level = level

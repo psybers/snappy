@@ -396,7 +396,7 @@ Everything lives in the `Snappy` target under `Snappy/App/` (all files are in on
 | `SessionPersistence.swift` | `SessionStore` (versioned atomic JSON in `~/Library/Application Support/Snappy/`; `active-session.json` + `last-session.json`; corrupt files renamed `*.corrupt.json`), `SessionRemapper` (matches saved displays to connected ones by ID then characteristics), `SessionPersistenceController` (300 ms debounced autosave, save-on-exit, restore/clear). |
 | `AppPreferences.swift` | Preference value types: `ShortcutConfiguration`, `ColorComponents`, `EdgeToleranceLevel`/`EdgeToleranceSettings`, `AppPreferences`. |
 | `PreferencesStore.swift` | Shared observable store; persists preferences (UserDefaults) and exposes the active `AppPreferences`. |
-| `PreferencesView.swift` | SwiftUI settings view + `PreferencesWindowPresenter` (focuses the settings window on every menu click). |
+| `PreferencesView.swift` | Tabbed SwiftUI settings view (General, Tolerance, Appearance, Shortcuts) + `PreferencesWindowPresenter` (focuses the settings window on every menu click). |
 | `ScreenAccessProbe.swift` | `CGPreflightScreenCaptureAccess` can stay false after grant until relaunch, so this asks ScreenCaptureKit directly as a fallback probe. |
 
 ## Tests

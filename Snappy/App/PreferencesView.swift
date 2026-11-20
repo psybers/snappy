@@ -1,6 +1,30 @@
 import AppKit
 import SwiftUI
 
+private enum PreferencesTab: String, CaseIterable, Identifiable {
+    case general, tolerance, appearance, shortcuts
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general: "General"
+        case .tolerance: "Tolerance"
+        case .appearance: "Appearance"
+        case .shortcuts: "Shortcuts"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .general: "gearshape"
+        case .tolerance: "slider.horizontal.3"
+        case .appearance: "paintpalette"
+        case .shortcuts: "keyboard"
+        }
+    }
+}
+
 struct PreferencesView: View {
     @ObservedObject var store: PreferencesStore
     @ObservedObject private var inputMonitor = GlobalInputMonitor.shared
@@ -8,96 +32,47 @@ struct PreferencesView: View {
     @ObservedObject private var accessibilityPermissions = AccessibilityPermissionManager.shared
     @ObservedObject private var screenRecordingPermissions = ScreenRecordingPermissionManager.shared
     @State private var settingsOpenError: String?
+    @State private var selectedTab: PreferencesTab = .general
+    @State private var tabContentHeights: [PreferencesTab: CGFloat] = [:]
 
     init(store: PreferencesStore = .shared) {
         self.store = store
     }
 
     var body: some View {
-        ScrollView {
+        TabView(selection: $selectedTab) {
+            Tab(PreferencesTab.general.title, systemImage: PreferencesTab.general.systemImage, value: PreferencesTab.general) {
+                generalTab
+            }
+            Tab(PreferencesTab.tolerance.title, systemImage: PreferencesTab.tolerance.systemImage, value: PreferencesTab.tolerance) {
+                toleranceTab
+            }
+            Tab(PreferencesTab.appearance.title, systemImage: PreferencesTab.appearance.systemImage, value: PreferencesTab.appearance) {
+                appearanceTab
+            }
+            Tab(PreferencesTab.shortcuts.title, systemImage: PreferencesTab.shortcuts.systemImage, value: PreferencesTab.shortcuts) {
+                shortcutsTab
+            }
+        }
+        .scenePadding()
+        .frame(width: 560)
+        .background(WindowResizeAnimator(targetHeight: targetWindowHeight))
+        .navigationTitle("Snappy Preferences")
+        .background(PreferencesWindowFocus())
+        .onAppear {
+            accessibilityPermissions.refresh()
+            inputMonitor.refreshKeyboardPermission()
+            screenRecordingPermissions.refresh()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            accessibilityPermissions.refresh()
+            inputMonitor.refreshKeyboardPermission()
+            screenRecordingPermissions.refresh()
+        }
+    }
+
+    private var generalTab: some View {
         Form {
-            Section("Measurement shortcut") {
-                HStack {
-                    TextField("Key", text: shortcutKeyBinding)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 72)
-                        .accessibilityLabel("Shortcut key")
-                    Text("The shortcut applies globally while Snappy is running.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                HStack {
-                    ForEach(ShortcutModifier.allCases) { modifier in
-                        Toggle(modifier.rawValue.capitalized, isOn: modifierBinding(modifier))
-                    }
-                }
-                if let registrationError = shortcutService.registrationError {
-                    Text(registrationError)
-                        .foregroundStyle(.red)
-                }
-            }
-
-            Section("Edge tolerance") {
-                Picker("Level", selection: Binding(
-                    get: { store.preferences.edgeTolerance.level },
-                    set: { store.setEdgeToleranceLevel($0) }
-                )) {
-                    ForEach(EdgeToleranceLevel.allCases) { level in
-                        Text(level.title).tag(level)
-                    }
-                }
-                Text("Zero is fixed at 0. Higher values ignore larger color differences.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                ForEach([EdgeToleranceLevel.low, .medium, .high]) { level in
-                    HStack {
-                        Text(level.title)
-                            .frame(width: 60, alignment: .leading)
-                        Slider(value: toleranceBinding(for: level), in: 1...100, step: 1)
-                            .accessibilityLabel("\(level.title) edge tolerance")
-                        Text("\(Int(toleranceBinding(for: level).wrappedValue))")
-                            .monospacedDigit()
-                            .frame(width: 32, alignment: .trailing)
-                    }
-                }
-                Text("Use T to cycle, − to decrease, and = to increase while measuring.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("Appearance") {
-                ColorPicker(
-                    "Measurement indicators",
-                    selection: colorBinding(for: \.measurementColor)
-                )
-                ColorPicker(
-                    "Guidelines",
-                    selection: colorBinding(for: \.guidelineColor)
-                )
-                HStack {
-                    Text("Dimension label size")
-                    Slider(value: fontSizeBinding, in: 8...48, step: 1)
-                    Text("\(Int(store.preferences.dimensionLabelFontSize)) pt")
-                        .monospacedDigit()
-                        .frame(width: 48, alignment: .trailing)
-                }
-            }
-
-            Section("Line thickness") {
-                HStack(alignment: .center, spacing: 8) {
-                    VStack(spacing: 8) {
-                        thicknessRow("Measurement mode", keyPath: \.measurementLineThickness)
-                        pinnedThicknessRow()
-                    }
-                    pinnedLockButton()
-                }
-                thicknessRow("Guidelines", keyPath: \.guidelineLineThickness)
-                thicknessRow("Rectangles", keyPath: \.rectangleLineThickness)
-                Text("Hovering an annotation draws its lines slightly thicker.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
             Section("System Permissions") {
                 if accessibilityPermissions.isTrusted {
                     Label("Accessibility permission is enabled.", systemImage: "checkmark.circle")
@@ -141,37 +116,179 @@ struct PreferencesView: View {
                 }
             }
 
-            if let validationMessage = store.validationMessage {
-                Text(validationMessage)
-                    .foregroundStyle(.orange)
+            statusMessages
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.height
+        } action: { height in
+            recordHeight(.general, height)
+        }
+    }
+
+    private var toleranceTab: some View {
+        Form {
+            Section("Edge tolerance") {
+                Picker("Level", selection: Binding(
+                    get: { store.preferences.edgeTolerance.level },
+                    set: { store.setEdgeToleranceLevel($0) }
+                )) {
+                    ForEach(EdgeToleranceLevel.allCases) { level in
+                        Text(level.title).tag(level)
+                    }
+                }
+                Text("Zero is fixed at 0. Higher values ignore larger color differences.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                ForEach([EdgeToleranceLevel.low, .medium, .high]) { level in
+                    HStack {
+                        Text(level.title)
+                            .frame(width: 60, alignment: .leading)
+                        Slider(value: toleranceBinding(for: level), in: 1...100, step: 1)
+                            .accessibilityLabel("\(level.title) edge tolerance")
+                        Text("\(Int(toleranceBinding(for: level).wrappedValue))")
+                            .monospacedDigit()
+                            .frame(width: 32, alignment: .trailing)
+                    }
+                }
+                Text("Use T to cycle, − to decrease, and = to increase while measuring.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
-            if let persistenceError = store.persistenceError {
-                Text(persistenceError)
-                    .foregroundStyle(.red)
-            }
+            statusMessages
 
-            HStack {
-                Spacer()
-                Button("Restore Defaults") {
-                    store.resetToDefaults()
+            restoreDefaultsButton { store.resetEdgeToleranceToDefaults() }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.height
+        } action: { height in
+            recordHeight(.tolerance, height)
+        }
+    }
+
+    private var appearanceTab: some View {
+        Form {
+            Section("Appearance") {
+                ColorPicker(
+                    "Measurement indicators",
+                    selection: colorBinding(for: \.measurementColor)
+                )
+                ColorPicker(
+                    "Guidelines",
+                    selection: colorBinding(for: \.guidelineColor)
+                )
+                HStack {
+                    Text("Dimension label size")
+                    Slider(value: fontSizeBinding, in: 8...48, step: 1)
+                    Text("\(Int(store.preferences.dimensionLabelFontSize)) pt")
+                        .monospacedDigit()
+                        .frame(width: 48, alignment: .trailing)
                 }
             }
+
+            Section("Line thickness") {
+                HStack(alignment: .center, spacing: 8) {
+                    VStack(spacing: 8) {
+                        thicknessRow("Measurement mode", keyPath: \.measurementLineThickness)
+                        pinnedThicknessRow()
+                    }
+                    pinnedLockButton()
+                }
+                thicknessRow("Guidelines", keyPath: \.guidelineLineThickness)
+                thicknessRow("Rectangles", keyPath: \.rectangleLineThickness)
+                Text("Hovering an annotation draws its lines slightly thicker.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            statusMessages
+
+            restoreDefaultsButton { store.resetAppearanceToDefaults() }
         }
-        .padding(20)
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.height
+        } action: { height in
+            recordHeight(.appearance, height)
         }
-        .frame(width: 560, height: min(720, (NSScreen.main?.visibleFrame.height ?? 820) - 100))
-        .navigationTitle("Snappy Preferences")
-        .background(PreferencesWindowFocus())
-        .onAppear {
-            accessibilityPermissions.refresh()
-            inputMonitor.refreshKeyboardPermission()
-            screenRecordingPermissions.refresh()
+    }
+
+    private var shortcutsTab: some View {
+        Form {
+            Section("Measurement shortcut") {
+                HStack {
+                    TextField("Key", text: shortcutKeyBinding)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 72)
+                        .accessibilityLabel("Shortcut key")
+                    Text("The shortcut applies globally while Snappy is running.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                HStack {
+                    ForEach(ShortcutModifier.allCases) { modifier in
+                        Toggle(modifier.rawValue.capitalized, isOn: modifierBinding(modifier))
+                    }
+                }
+                if let registrationError = shortcutService.registrationError {
+                    Text(registrationError)
+                        .foregroundStyle(.red)
+                }
+            }
+
+            statusMessages
+
+            restoreDefaultsButton { store.resetShortcutToDefaults() }
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            accessibilityPermissions.refresh()
-            inputMonitor.refreshKeyboardPermission()
-            screenRecordingPermissions.refresh()
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.height
+        } action: { height in
+            recordHeight(.shortcuts, height)
+        }
+    }
+
+    /// `TabView` lays out every tab's form at the selected tab's height, so
+    /// each form's geometry reports the *selected* tab's height — not its own.
+    /// Only the selected tab's report is trustworthy; other tabs keep their
+    /// last reported height until they are selected again.
+    private func recordHeight(_ tab: PreferencesTab, _ height: CGFloat) {
+        guard selectedTab == tab, height > 50 else { return }
+        tabContentHeights[tab] = height
+    }
+
+    /// Height of everything around a tab's content: the tab bar plus
+    /// `.scenePadding()` margins. Constant across tabs.
+    private static let tabChromeHeight: CGFloat = 70
+
+    /// Window content height for the selected tab, or nil until that tab's
+    /// form has reported its height (the window then keeps its current size
+    /// for a frame before animating to fit).
+    private var targetWindowHeight: CGFloat? {
+        tabContentHeights[selectedTab].map { $0 + Self.tabChromeHeight }
+    }
+
+    /// Validation and persistence errors apply to every tab's controls, so
+    /// they are shown on each tab rather than only where they originated.
+    @ViewBuilder
+    private var statusMessages: some View {
+        if let validationMessage = store.validationMessage {
+            Text(validationMessage)
+                .foregroundStyle(.orange)
+        }
+
+        if let persistenceError = store.persistenceError {
+            Text(persistenceError)
+                .foregroundStyle(.red)
+        }
+    }
+
+    private func restoreDefaultsButton(_ action: @escaping () -> Void) -> some View {
+        HStack {
+            Spacer()
+            Button("Restore Defaults", action: action)
         }
     }
 
@@ -299,6 +416,49 @@ struct PreferencesView: View {
             return
         }
         settingsOpenError = nil
+    }
+}
+
+/// Animates the settings window's height to fit the selected tab. The desired
+/// content height is measured by the owning view from each tab form's live
+/// geometry report, so transient content (permission status, validation
+/// messages) is always accounted for.
+struct WindowResizeAnimator: NSViewRepresentable {
+    /// Desired window content height in points, or nil to leave the window
+    /// at its current size.
+    let targetHeight: CGFloat?
+
+    func makeNSView(context: Context) -> NSView { NSView() }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            guard let window = nsView.window,
+                  let contentView = window.contentView,
+                  let targetHeight else { return }
+
+            guard abs(contentView.bounds.height - targetHeight) > 1,
+                  abs(context.coordinator.lastTargetHeight - targetHeight) > 0.5 else { return }
+            context.coordinator.lastTargetHeight = targetHeight
+
+            // Width is pinned to the TabView's fixed frame width.
+            let targetSize = NSSize(width: 560, height: targetHeight)
+            let newFrameSize = window.frameRect(forContentRect: NSRect(origin: .zero, size: targetSize)).size
+
+            var frame = window.frame
+            // Keep top-left corner pinned like standard macOS Settings windows
+            frame.origin.y += (frame.height - newFrameSize.height)
+            frame.size = newFrameSize
+
+            window.setFrame(frame, display: true, animate: true)
+        }
+    }
+
+    /// Remembers the last height an animation was started for, so unrelated
+    /// view updates can't retrigger (and restart) the same resize mid-flight.
+    final class Coordinator {
+        var lastTargetHeight: CGFloat = 0
     }
 }
 
