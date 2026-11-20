@@ -890,6 +890,28 @@ final class AnnotationInteractionTests: XCTestCase {
         XCTAssertEqual(snapped.bounds, Rect2D(x: 0, y: 60, width: 350, height: 240))
     }
 
+    func testRectangleEdgesNarrowDetectedBoundsWithinPointerSpan() {
+        let candidate = DetectionCandidate(
+            bounds: Rect2D(x: 0, y: 0, width: 400, height: 300),
+            source: .vision, confidence: 1, displayID: "d")
+        // Pointer inside the rectangle: all four edges clip the candidate
+        // down to the rectangle's bounds.
+        let containing = [
+            MeasurementAnnotation(displayID: "d",
+                geometry: .rectangle(Rect2D(x: 100, y: 50, width: 200, height: 200))),
+        ]
+        let snapped = PinnedLineSnapper.snap(
+            candidate, pointer: Point2D(x: 200, y: 150), annotations: containing)
+        XCTAssertEqual(snapped.bounds, Rect2D(x: 100, y: 50, width: 200, height: 200))
+
+        // Pointer above the rectangle: its vertical edges are out of span
+        // and ignored. Both horizontal edges lie below the pointer, so the
+        // one nearest the pointer (top edge, y=250) becomes the boundary.
+        let above = PinnedLineSnapper.snap(
+            candidate, pointer: Point2D(x: 200, y: 280), annotations: containing)
+        XCTAssertEqual(above.bounds, Rect2D(x: 0, y: 250, width: 400, height: 50))
+    }
+
     func testCandidateWithoutDisplayIDIsReturnedUnchanged() {
         let candidate = DetectionCandidate(
             bounds: Rect2D(x: 0, y: 0, width: 400, height: 300),

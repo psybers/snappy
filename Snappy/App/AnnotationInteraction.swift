@@ -1139,8 +1139,9 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
     }
 }
 
-/// Narrows a detected element's bounds so pinned lines (guidelines and
-/// persistent H/V measurements) act as edges, as if they were drawn on screen.
+/// Narrows a detected element's bounds so pinned lines (guidelines,
+/// persistent H/V measurements, and rectangle edges) act as edges, as if
+/// they were drawn on screen.
 enum PinnedLineSnapper {
     static func snap(
         _ candidate: DetectionCandidate,
@@ -1175,8 +1176,19 @@ enum PinnedLineSnapper {
                 if pointer.x >= min(start.x, start.x + length), pointer.x <= max(start.x, start.x + length) {
                     horizontal(start.y)
                 }
-            case .rectangle:
-                break
+            case .rectangle(let rect):
+                // Each edge acts like a pinned line, but only along the
+                // span it covers: vertical edges apply when the pointer is
+                // within the rectangle's height, horizontal edges when it
+                // is within its width.
+                if pointer.y >= rect.minY, pointer.y <= rect.maxY {
+                    vertical(rect.minX)
+                    vertical(rect.maxX)
+                }
+                if pointer.x >= rect.minX, pointer.x <= rect.maxX {
+                    horizontal(rect.minY)
+                    horizontal(rect.maxY)
+                }
             }
         }
 
