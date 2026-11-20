@@ -39,19 +39,20 @@ struct PreferencesView: View {
     }
 
     var body: some View {
-        VStack(spacing: 12) {
-            Picker("Preferences", selection: $selectedTab) {
-                ForEach(PreferencesTab.allCases) { tab in
-                    Label(tab.title, systemImage: tab.systemImage)
-                        .tag(tab)
-                }
+        TabView(selection: $selectedTab) {
+            Tab(PreferencesTab.general.title, systemImage: PreferencesTab.general.systemImage, value: PreferencesTab.general) {
+                generalTab
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-
-            selectedTabContent
+            Tab(PreferencesTab.tolerance.title, systemImage: PreferencesTab.tolerance.systemImage, value: PreferencesTab.tolerance) {
+                toleranceTab
+            }
+            Tab(PreferencesTab.appearance.title, systemImage: PreferencesTab.appearance.systemImage, value: PreferencesTab.appearance) {
+                appearanceTab
+            }
+            Tab(PreferencesTab.shortcuts.title, systemImage: PreferencesTab.shortcuts.systemImage, value: PreferencesTab.shortcuts) {
+                shortcutsTab
+            }
         }
-        .fixedSize(horizontal: false, vertical: true)
         .scenePadding()
         .background(WindowResizeAnimator(trigger: selectedTab))
         .navigationTitle("Snappy Preferences")
@@ -65,20 +66,6 @@ struct PreferencesView: View {
             accessibilityPermissions.refresh()
             inputMonitor.refreshKeyboardPermission()
             screenRecordingPermissions.refresh()
-        }
-    }
-
-    @ViewBuilder
-    private var selectedTabContent: some View {
-        switch selectedTab {
-        case .general:
-            generalTab
-        case .tolerance:
-            toleranceTab
-        case .appearance:
-            appearanceTab
-        case .shortcuts:
-            shortcutsTab
         }
     }
 
