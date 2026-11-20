@@ -5,6 +5,7 @@ struct MenuBarContent: View {
     @Environment(\.openSettings) private var openSettings
     @ObservedObject private var persistence = SessionPersistenceController.shared
     @ObservedObject private var coordinator = MeasurementCoordinator.shared
+    @ObservedObject private var updateChecker = UpdateChecker.shared
 
     var body: some View {
         if coordinator.mode.isActive {
@@ -39,6 +40,11 @@ struct MenuBarContent: View {
         } label: {
             Label("Preferences...", systemImage: "gearshape")
         }
+
+        Button("Check for Updates...") {
+            Task { await updateChecker.checkForUpdates(manual: true) }
+        }
+        .disabled(updateChecker.isWorking)
 
         Divider()
 

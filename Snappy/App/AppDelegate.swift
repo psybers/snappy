@@ -41,6 +41,9 @@ final class DisplayLifecycleDelegate: NSObject, NSApplicationDelegate {
         GlobalInputMonitor.shared.start()
         shortcutService = GlobalShortcutService.shared
         shortcutService?.start()
+        Task { @MainActor in
+            await UpdateChecker.shared.checkForUpdates()
+        }
         activationObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification,
             object: nil,

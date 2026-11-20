@@ -56,6 +56,7 @@
 		A100000000000000000000D8 /* PreferencesStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000D8 /* PreferencesStoreTests.swift */; };
 		A100000000000000000000D9 /* ScreenOverlayPanelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000D9 /* ScreenOverlayPanelTests.swift */; };
 		A100000000000000000000DA /* TemporaryMeasurementControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000DA /* TemporaryMeasurementControllerTests.swift */; };
+		A100000000000000000000E2 /* UpdateCheckerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000E2 /* UpdateCheckerTests.swift */; };
 		A10000000000000000000090 /* Snappy/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000090 /* Snappy/Assets.xcassets */; };
 		A100000000000000000000B1 /* ScreenOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B1 /* ScreenOverlayPanel.swift */; };
 		A100000000000000000000C1 /* ScreenOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B1 /* ScreenOverlayPanel.swift */; };
@@ -69,6 +70,8 @@
 		A100000000000000000000C5 /* PixelExtentDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B5 /* PixelExtentDetector.swift */; };
 		A100000000000000000000B6 /* ScreenAccessProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B6 /* ScreenAccessProbe.swift */; };
 		A100000000000000000000C6 /* ScreenAccessProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B6 /* ScreenAccessProbe.swift */; };
+		A100000000000000000000E1 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000E1 /* UpdateChecker.swift */; };
+		A100000000000000000000E3 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000E1 /* UpdateChecker.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -94,6 +97,7 @@
 		B10000000000000000000017 /* DisplayManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayManager.swift; sourceTree = "<group>"; };
 		B10000000000000000000018 /* DisplayManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayManagerTests.swift; sourceTree = "<group>"; };
 		B10000000000000000000019 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		B100000000000000000000E1 /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
 		B1000000000000000000001A /* MeasurementCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementCoordinator.swift; sourceTree = "<group>"; };
 		B1000000000000000000001B /* GlobalInputMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalInputMonitor.swift; sourceTree = "<group>"; };
 		B1000000000000000000001C /* GlobalShortcutService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalShortcutService.swift; sourceTree = "<group>"; };
@@ -120,6 +124,7 @@
 		B100000000000000000000D8 /* PreferencesStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesStoreTests.swift; sourceTree = "<group>"; };
 		B100000000000000000000D9 /* ScreenOverlayPanelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenOverlayPanelTests.swift; sourceTree = "<group>"; };
 		B100000000000000000000DA /* TemporaryMeasurementControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryMeasurementControllerTests.swift; sourceTree = "<group>"; };
+		B100000000000000000000E2 /* UpdateCheckerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCheckerTests.swift; sourceTree = "<group>"; };
 		B10000000000000000000090 /* Snappy/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Snappy/Assets.xcassets; sourceTree = "<group>"; };
 		B100000000000000000000B1 /* ScreenOverlayPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenOverlayPanel.swift; sourceTree = "<group>"; };
 		B100000000000000000000B2 /* OverlayContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayContentView.swift; sourceTree = "<group>"; };
@@ -172,6 +177,7 @@
 				B10000000000000000000015 /* PreferencesStore.swift */,
 				B10000000000000000000017 /* DisplayManager.swift */,
 				B10000000000000000000019 /* AppDelegate.swift */,
+				B100000000000000000000E1 /* UpdateChecker.swift */,
 				B1000000000000000000001B /* GlobalInputMonitor.swift */,
 				B1000000000000000000001A /* MeasurementCoordinator.swift */,
 				B1000000000000000000001C /* GlobalShortcutService.swift */,
@@ -209,6 +215,7 @@
 				B100000000000000000000D8 /* PreferencesStoreTests.swift */,
 				B100000000000000000000D9 /* ScreenOverlayPanelTests.swift */,
 				B100000000000000000000DA /* TemporaryMeasurementControllerTests.swift */,
+				B100000000000000000000E2 /* UpdateCheckerTests.swift */,
 			);
 			path = SnappyTests;
 			sourceTree = SOURCE_ROOT;
@@ -332,6 +339,7 @@
 				A1000000000000000000000A /* PreferencesStore.swift in Sources */,
 				A10000000000000000000010 /* DisplayManager.swift in Sources */,
 				A10000000000000000000013 /* AppDelegate.swift in Sources */,
+				A100000000000000000000E1 /* UpdateChecker.swift in Sources */,
 				A10000000000000000000016 /* MeasurementCoordinator.swift in Sources */,
 				A10000000000000000000017 /* GlobalInputMonitor.swift in Sources */,
 				A10000000000000000000018 /* GlobalShortcutService.swift in Sources */,
@@ -388,6 +396,8 @@
 				A100000000000000000000D8 /* PreferencesStoreTests.swift in Sources */,
 				A100000000000000000000D9 /* ScreenOverlayPanelTests.swift in Sources */,
 				A100000000000000000000DA /* TemporaryMeasurementControllerTests.swift in Sources */,
+				A100000000000000000000E2 /* UpdateCheckerTests.swift in Sources */,
+				A100000000000000000000E3 /* UpdateChecker.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -440,7 +450,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGN_IDENTITY = "-";
-				CURRENT_PROJECT_VERSION = 79;
+				CURRENT_PROJECT_VERSION = 80;
 				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
@@ -461,7 +471,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGN_IDENTITY = "-";
-				CURRENT_PROJECT_VERSION = 79;
+				CURRENT_PROJECT_VERSION = 80;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
