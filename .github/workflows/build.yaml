@@ -29,7 +29,6 @@ jobs:
             -configuration Release \
             -archivePath $RUNNER_TEMP/${APP_NAME}.xcarchive \
             MARKETING_VERSION="${GITHUB_REF_NAME#v}" \
-            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO
 
