@@ -401,7 +401,7 @@ Everything lives in the `Snappy` target under `Snappy/App/` (all files are in on
 
 ## Tests
 
-`SnappyTests/` has one file per concern: `DomainAndPreferencesTests`, `DisplayManagerTests`, `MeasurementCoordinatorTests`, `AccessibilityDetectionTests`, `ScreenCaptureDetectionTests`, `RectangleSelectionTests`, `AnnotationInteractionTests`, `SessionPersistenceTests`, `AcceptanceLifecycleTests`. Most types are testable without UI via injected closures/protocols (`ElementDetecting`, `RectangleSelectionAnalyzing`, `AnnotationSurfacePresenting`, `MeasurementDisplayProviding`); prefer extending those seams over adding singletons.
+`SnappyTests/` mirrors `Snappy/App/` one-to-one: each `Foo.swift` has a `FooTests.swift` covering the types it defines (e.g. `RectangleSelectionTests` covers `SelectionGeometry`, `ContentBoundsDetector`, `RectangleSelectionService`, and `RectangleSelectionController`, all of which live in `RectangleSelection.swift`). `TestSupport.swift` holds shared fixtures (`makeTestDisplay`, `TestImages`) and stub implementations of the injectable protocols; `AcceptanceLifecycleTests` is the cross-cutting integration suite. Most types are testable without UI via injected closures/protocols (`ElementDetecting`, `RectangleSelectionAnalyzing`, `AnnotationSurfacePresenting`, `MeasurementDisplayProviding`); prefer extending those seams over adding singletons. Adding or renaming a test file requires updating `Snappy.xcodeproj/project.pbxproj` (the project uses explicit file lists, not synchronized groups).
 
 ## Notes on exit behavior
 

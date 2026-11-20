@@ -14,7 +14,6 @@
 		A10000000000000000000008 /* DisplayCoordinateMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* DisplayCoordinateMapper.swift */; };
 		A10000000000000000000009 /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* AppPreferences.swift */; };
 		A1000000000000000000000A /* PreferencesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* PreferencesStore.swift */; };
-		A1000000000000000000000B /* DomainAndPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000016 /* DomainAndPreferencesTests.swift */; };
 		A1000000000000000000000C /* DomainModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* DomainModels.swift */; };
 		A1000000000000000000000D /* DisplayCoordinateMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* DisplayCoordinateMapper.swift */; };
 		A1000000000000000000000E /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* AppPreferences.swift */; };
@@ -23,7 +22,6 @@
 		A10000000000000000000011 /* DisplayManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000018 /* DisplayManagerTests.swift */; };
 		A10000000000000000000012 /* DisplayManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000017 /* DisplayManager.swift */; };
 		A10000000000000000000013 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* AppDelegate.swift */; };
-		A10000000000000000000015 /* DisplayManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000018 /* DisplayManagerTests.swift */; };
 		A10000000000000000000016 /* MeasurementCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001A /* MeasurementCoordinator.swift */; };
 		A10000000000000000000017 /* GlobalInputMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001B /* GlobalInputMonitor.swift */; };
 		A10000000000000000000018 /* GlobalShortcutService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001C /* GlobalShortcutService.swift */; };
@@ -47,6 +45,17 @@
 		A10000000000000000000061 /* RectangleSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000060 /* RectangleSelection.swift */; };
 		A10000000000000000000062 /* RectangleSelectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000062 /* RectangleSelectionTests.swift */; };
 		A10000000000000000000070 /* AcceptanceLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000070 /* AcceptanceLifecycleTests.swift */; };
+		A100000000000000000000D0 /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000D0 /* TestSupport.swift */; };
+		A100000000000000000000D1 /* AppPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000D1 /* AppPreferencesTests.swift */; };
+		A100000000000000000000D2 /* DisplayCoordinateMapperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000D2 /* DisplayCoordinateMapperTests.swift */; };
+		A100000000000000000000D3 /* DomainModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000D3 /* DomainModelsTests.swift */; };
+		A100000000000000000000D4 /* GlobalShortcutServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000D4 /* GlobalShortcutServiceTests.swift */; };
+		A100000000000000000000D5 /* GuidelineSnapImageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000D5 /* GuidelineSnapImageTests.swift */; };
+		A100000000000000000000D6 /* OverlayContentViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000D6 /* OverlayContentViewTests.swift */; };
+		A100000000000000000000D7 /* PixelExtentDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000D7 /* PixelExtentDetectorTests.swift */; };
+		A100000000000000000000D8 /* PreferencesStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000D8 /* PreferencesStoreTests.swift */; };
+		A100000000000000000000D9 /* ScreenOverlayPanelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000D9 /* ScreenOverlayPanelTests.swift */; };
+		A100000000000000000000DA /* TemporaryMeasurementControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000DA /* TemporaryMeasurementControllerTests.swift */; };
 		A10000000000000000000090 /* Snappy/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000090 /* Snappy/Assets.xcassets */; };
 		A100000000000000000000B1 /* ScreenOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B1 /* ScreenOverlayPanel.swift */; };
 		A100000000000000000000C1 /* ScreenOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000000000000000000B1 /* ScreenOverlayPanel.swift */; };
@@ -82,7 +91,6 @@
 		B10000000000000000000013 /* DisplayCoordinateMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayCoordinateMapper.swift; sourceTree = "<group>"; };
 		B10000000000000000000014 /* AppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
 		B10000000000000000000015 /* PreferencesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesStore.swift; sourceTree = "<group>"; };
-		B10000000000000000000016 /* DomainAndPreferencesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainAndPreferencesTests.swift; sourceTree = "<group>"; };
 		B10000000000000000000017 /* DisplayManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayManager.swift; sourceTree = "<group>"; };
 		B10000000000000000000018 /* DisplayManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayManagerTests.swift; sourceTree = "<group>"; };
 		B10000000000000000000019 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -101,6 +109,17 @@
 		B10000000000000000000060 /* RectangleSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RectangleSelection.swift; sourceTree = "<group>"; };
 		B10000000000000000000062 /* RectangleSelectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RectangleSelectionTests.swift; sourceTree = "<group>"; };
 		B10000000000000000000070 /* AcceptanceLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcceptanceLifecycleTests.swift; sourceTree = "<group>"; };
+		B100000000000000000000D0 /* TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSupport.swift; sourceTree = "<group>"; };
+		B100000000000000000000D1 /* AppPreferencesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferencesTests.swift; sourceTree = "<group>"; };
+		B100000000000000000000D2 /* DisplayCoordinateMapperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayCoordinateMapperTests.swift; sourceTree = "<group>"; };
+		B100000000000000000000D3 /* DomainModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainModelsTests.swift; sourceTree = "<group>"; };
+		B100000000000000000000D4 /* GlobalShortcutServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalShortcutServiceTests.swift; sourceTree = "<group>"; };
+		B100000000000000000000D5 /* GuidelineSnapImageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidelineSnapImageTests.swift; sourceTree = "<group>"; };
+		B100000000000000000000D6 /* OverlayContentViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayContentViewTests.swift; sourceTree = "<group>"; };
+		B100000000000000000000D7 /* PixelExtentDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelExtentDetectorTests.swift; sourceTree = "<group>"; };
+		B100000000000000000000D8 /* PreferencesStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesStoreTests.swift; sourceTree = "<group>"; };
+		B100000000000000000000D9 /* ScreenOverlayPanelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenOverlayPanelTests.swift; sourceTree = "<group>"; };
+		B100000000000000000000DA /* TemporaryMeasurementControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryMeasurementControllerTests.swift; sourceTree = "<group>"; };
 		B10000000000000000000090 /* Snappy/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Snappy/Assets.xcassets; sourceTree = "<group>"; };
 		B100000000000000000000B1 /* ScreenOverlayPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenOverlayPanel.swift; sourceTree = "<group>"; };
 		B100000000000000000000B2 /* OverlayContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayContentView.swift; sourceTree = "<group>"; };
@@ -175,11 +194,21 @@
 				B10000000000000000000062 /* RectangleSelectionTests.swift */,
 				B10000000000000000000070 /* AcceptanceLifecycleTests.swift */,
 				B10000000000000000000042 /* AnnotationInteractionTests.swift */,
-				B10000000000000000000016 /* DomainAndPreferencesTests.swift */,
 				B10000000000000000000018 /* DisplayManagerTests.swift */,
 				B1000000000000000000001D /* MeasurementCoordinatorTests.swift */,
 				B1000000000000000000001F /* AccessibilityDetectionTests.swift */,
 				B10000000000000000000022 /* ScreenCaptureDetectionTests.swift */,
+				B100000000000000000000D0 /* TestSupport.swift */,
+				B100000000000000000000D1 /* AppPreferencesTests.swift */,
+				B100000000000000000000D2 /* DisplayCoordinateMapperTests.swift */,
+				B100000000000000000000D3 /* DomainModelsTests.swift */,
+				B100000000000000000000D4 /* GlobalShortcutServiceTests.swift */,
+				B100000000000000000000D5 /* GuidelineSnapImageTests.swift */,
+				B100000000000000000000D6 /* OverlayContentViewTests.swift */,
+				B100000000000000000000D7 /* PixelExtentDetectorTests.swift */,
+				B100000000000000000000D8 /* PreferencesStoreTests.swift */,
+				B100000000000000000000D9 /* ScreenOverlayPanelTests.swift */,
+				B100000000000000000000DA /* TemporaryMeasurementControllerTests.swift */,
 			);
 			path = SnappyTests;
 			sourceTree = SOURCE_ROOT;
@@ -328,14 +357,12 @@
 				A10000000000000000000052 /* SessionPersistenceTests.swift in Sources */,
 				A10000000000000000000041 /* AnnotationInteraction.swift in Sources */,
 				A10000000000000000000042 /* AnnotationInteractionTests.swift in Sources */,
-				A1000000000000000000000B /* DomainAndPreferencesTests.swift in Sources */,
 				A1000000000000000000000C /* DomainModels.swift in Sources */,
 				A1000000000000000000000D /* DisplayCoordinateMapper.swift in Sources */,
 				A1000000000000000000000E /* AppPreferences.swift in Sources */,
 				A1000000000000000000000F /* PreferencesStore.swift in Sources */,
 				A10000000000000000000011 /* DisplayManagerTests.swift in Sources */,
 				A10000000000000000000012 /* DisplayManager.swift in Sources */,
-				A10000000000000000000015 /* DisplayManagerTests.swift in Sources */,
 				A10000000000000000000019 /* MeasurementCoordinator.swift in Sources */,
 				A1000000000000000000001A /* MeasurementCoordinatorTests.swift in Sources */,
 				A1000000000000000000001B /* GlobalInputMonitor.swift in Sources */,
@@ -350,6 +377,17 @@
 				A100000000000000000000C1 /* ScreenOverlayPanel.swift in Sources */,
 				A100000000000000000000C2 /* OverlayContentView.swift in Sources */,
 				A100000000000000000000C3 /* TemporaryMeasurementController.swift in Sources */,
+				A100000000000000000000D0 /* TestSupport.swift in Sources */,
+				A100000000000000000000D1 /* AppPreferencesTests.swift in Sources */,
+				A100000000000000000000D2 /* DisplayCoordinateMapperTests.swift in Sources */,
+				A100000000000000000000D3 /* DomainModelsTests.swift in Sources */,
+				A100000000000000000000D4 /* GlobalShortcutServiceTests.swift in Sources */,
+				A100000000000000000000D5 /* GuidelineSnapImageTests.swift in Sources */,
+				A100000000000000000000D6 /* OverlayContentViewTests.swift in Sources */,
+				A100000000000000000000D7 /* PixelExtentDetectorTests.swift in Sources */,
+				A100000000000000000000D8 /* PreferencesStoreTests.swift in Sources */,
+				A100000000000000000000D9 /* ScreenOverlayPanelTests.swift in Sources */,
+				A100000000000000000000DA /* TemporaryMeasurementControllerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

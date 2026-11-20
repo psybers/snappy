@@ -3,7 +3,13 @@ import XCTest
 
 @testable import Snappy
 
+/// Tests for `RectangleSelection.swift`: `SelectionGeometry`,
+/// `ContentBoundsDetector`, `RectangleSelectionService`, and
+/// `RectangleSelectionController`.
+@MainActor
 final class RectangleSelectionTests: XCTestCase {
+    // MARK: - SelectionGeometry / ContentBoundsDetector
+
     func testClipToDisplay() {
         let display = Rect2D(x: 0, y: 0, width: 100, height: 100)
         let clipped = SelectionGeometry.clip(Rect2D(x: 50, y: 50, width: 100, height: 100), to: display)
@@ -30,43 +36,30 @@ final class RectangleSelectionTests: XCTestCase {
         XCTAssertNil(SelectionGeometry.enclosing(selection: selection, elements: [outside]))
     }
 
-    private func image(width: Int, height: Int, square: (x: Int, y: Int, w: Int, h: Int)?) -> CGImage {
-        let ctx = CGContext(
-            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-        ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
-        ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
-        if let s = square {
-            ctx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
-            // CGContext origin is bottom-left; y here is measured from the bottom.
-            ctx.fill(CGRect(x: s.x, y: s.y, width: s.w, height: s.h))
-        }
-        return ctx.makeImage()!
-    }
-
-    func testContentBoundsFindsSquare() {
+    func testContentBoundsFindsSquare() throws {
         let captured = CapturedDisplayRegion(
-            image: image(width: 100, height: 100, square: (20, 30, 40, 10)),
+            image: try TestImages.filledRectImage(width: 100, height: 100, rect: (20, 30, 40, 10)),
             displayID: "d", displayLocalBounds: Rect2D(x: 100, y: 200, width: 100, height: 100))
         let bounds = ContentBoundsDetector().bounds(in: captured)
         XCTAssertEqual(bounds, Rect2D(x: 120, y: 230, width: 40, height: 10))
     }
 
-    func testContentBoundsScale2() {
+    func testContentBoundsScale2() throws {
         let captured = CapturedDisplayRegion(
-            image: image(width: 100, height: 100, square: (20, 30, 40, 10)),
+            image: try TestImages.filledRectImage(width: 100, height: 100, rect: (20, 30, 40, 10)),
             displayID: "d", displayLocalBounds: Rect2D(x: 0, y: 0, width: 50, height: 50))
         XCTAssertEqual(
             ContentBoundsDetector().bounds(in: captured), Rect2D(x: 10, y: 15, width: 20, height: 5))
     }
 
-    func testContentBoundsEmpty() {
+    func testContentBoundsEmpty() throws {
         let captured = CapturedDisplayRegion(
-            image: image(width: 40, height: 40, square: nil),
+            image: try TestImages.filledRectImage(width: 40, height: 40, rect: nil),
             displayID: "d", displayLocalBounds: Rect2D(x: 0, y: 0, width: 40, height: 40))
         XCTAssertNil(ContentBoundsDetector().bounds(in: captured))
     }
+
+    // MARK: - Rectangle label / hit-testing helpers
 
     func testRectangleLabelAndHitTesting() {
         let rect = Rect2D(x: 100, y: 100, width: 80, height: 60)
@@ -86,39 +79,24 @@ final class RectangleSelectionTests: XCTestCase {
         XCTAssertLessThanOrEqual(below.maxY, small.minY)
     }
 
-    func testSelectionRectNormalisesDrag() {
-        let r = RectangleSelectionController.rect(from: Point2D(x: 50, y: 40), to: Point2D(x: 10, y: 90))
-        XCTAssertEqual(r, Rect2D(x: 10, y: 40, width: 40, height: 50))
-    }
-
     // MARK: - RectangleSelectionService
 
-    private let serviceDisplay = DisplayDescriptor(
-        id: "d1",
-        logicalBounds: Rect2D(x: 0, y: 0, width: 1000, height: 600),
-        pixelWidth: 2000,
-        pixelHeight: 1200,
-        backingScale: 2
-    )
+    private let serviceDisplay = makeTestDisplay(id: "d1")
 
-    @MainActor
     private func makeService(
         axTrusted: Bool = true,
-        axSnapshot: AccessibilityElementSnapshot? = nil,
+        axElement: AccessibilityElementSnapshot? = nil,
         capture result: Result<CapturedDisplayRegion, Error>? = nil
-    ) -> (RectangleSelectionService, StubAccessibilityQuery, StubCaptureClient) {
-        let ax = StubAccessibilityQuery()
-        ax.isTrusted = axTrusted
-        ax.snapshot = axSnapshot
-        let capturer = StubCaptureClient()
-        capturer.result = result
+    ) -> (RectangleSelectionService, StubRegionCapturer) {
+        let ax = StubAccessibilityClient(isTrusted: axTrusted, element: axElement)
+        let capturer = StubRegionCapturer(
+            result: result ?? .failure(ScreenCaptureError.displayUnavailable))
         return (
             RectangleSelectionService(
                 accessibilityClient: ax,
                 capturer: capturer,
                 contentDetector: ContentBoundsDetector()
             ),
-            ax,
             capturer
         )
     }
@@ -134,9 +112,8 @@ final class RectangleSelectionTests: XCTestCase {
         )
     }
 
-    @MainActor
     func testServicePrefersAccessibilityElements() async {
-        let (service, _, _) = makeService(axSnapshot: axSnapshot())
+        let (service, _) = makeService(axElement: axSnapshot())
         let analysis = await service.analyze(
             selection: Rect2D(x: 100, y: 100, width: 200, height: 100),
             displays: [serviceDisplay],
@@ -147,29 +124,26 @@ final class RectangleSelectionTests: XCTestCase {
         XCTAssertEqual(analysis?.bounds, Rect2D(x: 120, y: 120, width: 100, height: 50))
     }
 
-    @MainActor
-    func testServiceFallsBackToVisionContentBounds() async {
+    func testServiceFallsBackToVisionContentBounds() async throws {
         let captured = CapturedDisplayRegion(
-            image: image(width: 100, height: 100, square: (20, 30, 40, 10)),
+            image: try TestImages.filledRectImage(width: 100, height: 100, rect: (20, 30, 40, 10)),
             displayID: "d1",
             displayLocalBounds: Rect2D(x: 100, y: 200, width: 100, height: 100)
         )
         // AX trusted but hit-testing finds nothing, so capture is used.
-        let (service, _, capturer) = makeService(
-            axTrusted: true, axSnapshot: nil, capture: .success(captured))
+        let (service, capturer) = makeService(capture: .success(captured))
         let analysis = await service.analyze(
             selection: Rect2D(x: 100, y: 200, width: 100, height: 100),
             displays: [serviceDisplay],
             primaryDisplayBounds: serviceDisplay.logicalBounds
         )
-        XCTAssertEqual(capturer.requests, ["d1"])
+        XCTAssertEqual(capturer.requestedDisplays, ["d1"])
         XCTAssertEqual(analysis?.source, .vision)
         XCTAssertEqual(analysis?.bounds, Rect2D(x: 120, y: 230, width: 40, height: 10))
     }
 
-    @MainActor
     func testServiceFallsBackToRawSelectionWhenCaptureFails() async {
-        let (service, _, _) = makeService(capture: .failure(ScreenCaptureError.permissionDenied))
+        let (service, _) = makeService(capture: .failure(ScreenCaptureError.permissionDenied))
         let selection = Rect2D(x: 100, y: 200, width: 100, height: 100)
         let analysis = await service.analyze(
             selection: selection,
@@ -180,17 +154,12 @@ final class RectangleSelectionTests: XCTestCase {
         XCTAssertEqual(analysis?.bounds, selection)
     }
 
-    @MainActor
     func testServiceAnalyzesDisplayContainingSelectionCenter() async {
         let a = serviceDisplay
-        let b = DisplayDescriptor(
-            id: "d2",
-            logicalBounds: Rect2D(x: 2000, y: 0, width: 500, height: 400),
-            pixelWidth: 1000,
-            pixelHeight: 800,
-            backingScale: 2
-        )
-        let (service, _, _) = makeService(capture: .failure(ScreenCaptureError.permissionDenied))
+        let b = makeTestDisplay(
+            id: "d2", x: 2000, width: 500, height: 400,
+            pixelWidth: 1000, pixelHeight: 800)
+        let (service, _) = makeService(capture: .failure(ScreenCaptureError.permissionDenied))
         let analysis = await service.analyze(
             selection: Rect2D(x: 2050, y: 100, width: 200, height: 100),
             displays: [a, b],
@@ -200,17 +169,12 @@ final class RectangleSelectionTests: XCTestCase {
         XCTAssertEqual(analysis?.bounds, Rect2D(x: 50, y: 100, width: 200, height: 100))
     }
 
-    @MainActor
     func testServiceUsesIntersectingDisplayWhenCenterIsOutsideAll() async {
         let a = serviceDisplay
-        let b = DisplayDescriptor(
-            id: "d2",
-            logicalBounds: Rect2D(x: 2000, y: 0, width: 500, height: 400),
-            pixelWidth: 1000,
-            pixelHeight: 800,
-            backingScale: 2
-        )
-        let (service, _, _) = makeService(capture: .failure(ScreenCaptureError.permissionDenied))
+        let b = makeTestDisplay(
+            id: "d2", x: 2000, width: 500, height: 400,
+            pixelWidth: 1000, pixelHeight: 800)
+        let (service, _) = makeService(capture: .failure(ScreenCaptureError.permissionDenied))
         // Center (1800, 200) is in the gap; the selection clips into d2.
         let analysis = await service.analyze(
             selection: Rect2D(x: 1500, y: 100, width: 600, height: 200),
@@ -221,26 +185,26 @@ final class RectangleSelectionTests: XCTestCase {
         XCTAssertEqual(analysis?.bounds, Rect2D(x: 0, y: 100, width: 100, height: 200))
     }
 
-    @MainActor
     func testServiceReturnsNilWhenSelectionMissesEveryDisplay() async {
-        let b = DisplayDescriptor(
-            id: "d2",
-            logicalBounds: Rect2D(x: 2000, y: 0, width: 500, height: 400),
-            pixelWidth: 1000,
-            pixelHeight: 800,
-            backingScale: 2
-        )
-        let (service, _, capturer) = makeService(capture: .failure(ScreenCaptureError.permissionDenied))
+        let b = makeTestDisplay(
+            id: "d2", x: 2000, width: 500, height: 400,
+            pixelWidth: 1000, pixelHeight: 800)
+        let (service, capturer) = makeService(capture: .failure(ScreenCaptureError.permissionDenied))
         let analysis = await service.analyze(
             selection: Rect2D(x: 1200, y: 100, width: 100, height: 100),
             displays: [serviceDisplay, b],
             primaryDisplayBounds: serviceDisplay.logicalBounds
         )
         XCTAssertNil(analysis)
-        XCTAssertTrue(capturer.requests.isEmpty)
+        XCTAssertTrue(capturer.requestedDisplays.isEmpty)
     }
 
     // MARK: - RectangleSelectionController
+
+    func testSelectionRectNormalisesDrag() {
+        let r = RectangleSelectionController.rect(from: Point2D(x: 50, y: 40), to: Point2D(x: 10, y: 90))
+        XCTAssertEqual(r, Rect2D(x: 10, y: 40, width: 40, height: 50))
+    }
 
     @MainActor
     func testControllerRejectsSelectionsBelowMinimumSize() async throws {
@@ -354,26 +318,7 @@ final class RectangleSelectionTests: XCTestCase {
     }
 }
 
-@MainActor
-private final class StubAccessibilityQuery: AccessibilityElementQuerying {
-    var isTrusted = true
-    var snapshot: AccessibilityElementSnapshot?
-
-    func element(at accessibilityPoint: Point2D) -> AccessibilityElementSnapshot? {
-        snapshot
-    }
-}
-
-@MainActor
-private final class StubCaptureClient: ScreenRegionCapturing {
-    var result: Result<CapturedDisplayRegion, Error>?
-    private(set) var requests: [String] = []
-
-    func capture(region: Rect2D, on display: DisplayDescriptor) async throws -> CapturedDisplayRegion {
-        requests.append(display.id)
-        return try result!.get()
-    }
-}
+// MARK: - Test doubles
 
 @MainActor
 private final class StubSelectionSurface: SelectionSurfacePresenting {

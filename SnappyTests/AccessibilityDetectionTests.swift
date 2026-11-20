@@ -4,7 +4,7 @@ import XCTest
 final class AccessibilityDetectionTests: XCTestCase {
     func testDeniedAccessibilityPermissionIsReportedExplicitly() {
         let detector = AccessibilityElementDetector(
-            client: AccessibilityClientStub(isTrusted: false, element: nil)
+            client: StubAccessibilityClient(isTrusted: false, element: nil)
         )
 
         XCTAssertEqual(
@@ -19,10 +19,10 @@ final class AccessibilityDetectionTests: XCTestCase {
 
     func testMissingElementAndAttributesAreReportedAsUnavailable() {
         let missingElementDetector = AccessibilityElementDetector(
-            client: AccessibilityClientStub(isTrusted: true, element: nil)
+            client: StubAccessibilityClient(isTrusted: true, element: nil)
         )
         let missingAttributesDetector = AccessibilityElementDetector(
-            client: AccessibilityClientStub(
+            client: StubAccessibilityClient(
                 isTrusted: true,
                 element: AccessibilityElementSnapshot(
                     position: Point2D(x: 100, y: 100),
@@ -44,7 +44,7 @@ final class AccessibilityDetectionTests: XCTestCase {
 
     func testInvalidGeometryAndPointerOutsideBoundsAreRejected() {
         let invalidGeometryDetector = AccessibilityElementDetector(
-            client: AccessibilityClientStub(
+            client: StubAccessibilityClient(
                 isTrusted: true,
                 element: AccessibilityElementSnapshot(
                     position: Point2D(x: 100, y: 100),
@@ -54,7 +54,7 @@ final class AccessibilityDetectionTests: XCTestCase {
             )
         )
         let pointerOutsideDetector = AccessibilityElementDetector(
-            client: AccessibilityClientStub(
+            client: StubAccessibilityClient(
                 isTrusted: true,
                 element: AccessibilityElementSnapshot(
                     position: Point2D(x: 100, y: 100),
@@ -80,7 +80,7 @@ final class AccessibilityDetectionTests: XCTestCase {
 
     func testAcceptsSpecificElementAndReturnsDisplayLocalBoundsAndRole() {
         let detector = AccessibilityElementDetector(
-            client: AccessibilityClientStub(
+            client: StubAccessibilityClient(
                 isTrusted: true,
                 element: AccessibilityElementSnapshot(
                     position: Point2D(x: 100, y: 100),
@@ -113,7 +113,7 @@ final class AccessibilityDetectionTests: XCTestCase {
             backingScale: 2
         )
         let detector = AccessibilityElementDetector(
-            client: AccessibilityClientStub(
+            client: StubAccessibilityClient(
                 isTrusted: true,
                 element: AccessibilityElementSnapshot(
                     position: Point2D(x: -480, y: 550),
@@ -143,7 +143,7 @@ final class AccessibilityDetectionTests: XCTestCase {
 
     func testRejectsWindowAndDisplaySizedFallbacks() {
         let windowDetector = AccessibilityElementDetector(
-            client: AccessibilityClientStub(
+            client: StubAccessibilityClient(
                 isTrusted: true,
                 element: AccessibilityElementSnapshot(
                     position: Point2D(x: 0, y: 0),
@@ -153,7 +153,7 @@ final class AccessibilityDetectionTests: XCTestCase {
             )
         )
         let oversizedDetector = AccessibilityElementDetector(
-            client: AccessibilityClientStub(
+            client: StubAccessibilityClient(
                 isTrusted: true,
                 element: AccessibilityElementSnapshot(
                     position: Point2D(x: 25, y: 25),
@@ -168,7 +168,7 @@ final class AccessibilityDetectionTests: XCTestCase {
     }
 
     func testHitTestReceivesConvertedAccessibilityPointerCoordinates() {
-        let client = AccessibilityClientStub(
+        let client = StubAccessibilityClient(
             isTrusted: true,
             element: AccessibilityElementSnapshot(
                 position: Point2D(x: 100, y: 100),
@@ -199,22 +199,5 @@ final class AccessibilityDetectionTests: XCTestCase {
             displays: [primaryDisplay],
             primaryDisplayBounds: primaryDisplay.logicalBounds
         )
-    }
-}
-
-@MainActor
-private final class AccessibilityClientStub: AccessibilityElementQuerying {
-    let isTrusted: Bool
-    let result: AccessibilityElementSnapshot?
-    private(set) var lastPoint: Point2D?
-
-    init(isTrusted: Bool, element: AccessibilityElementSnapshot?) {
-        self.isTrusted = isTrusted
-        result = element
-    }
-
-    func element(at accessibilityPoint: Point2D) -> AccessibilityElementSnapshot? {
-        lastPoint = accessibilityPoint
-        return result
     }
 }
