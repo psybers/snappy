@@ -137,6 +137,30 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertNotNil(store.validationMessage)
     }
 
+    func testPinnedLineThicknessLockMirrorsMeasurementThickness() {
+        let suiteName = "SnappyTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = PreferencesStore(defaults: defaults)
+
+        // Locked by default: moving the measurement slider moves pinned too.
+        XCTAssertTrue(store.preferences.pinnedLineThicknessLocked)
+        store.setLineThickness(4, for: \.measurementLineThickness)
+        XCTAssertEqual(store.preferences.pinnedLineThickness, 4)
+
+        // Unlocking keeps the synced value, then allows independent changes.
+        store.setPinnedLineThicknessLocked(false)
+        store.setLineThickness(7, for: \.pinnedLineThickness)
+        store.setLineThickness(6, for: \.measurementLineThickness)
+        XCTAssertEqual(store.preferences.pinnedLineThickness, 7)
+        XCTAssertEqual(store.preferences.measurementLineThickness, 6)
+
+        // Relocking snaps pinned back to the measurement value and persists.
+        store.setPinnedLineThicknessLocked(true)
+        XCTAssertEqual(store.preferences.pinnedLineThickness, 6)
+        XCTAssertEqual(PreferencesStore(defaults: defaults).preferences.pinnedLineThickness, 6)
+    }
+
     func testPreferencesStoreReportsCorruptSavedData() {
         let suiteName = "SnappyTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

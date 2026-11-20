@@ -82,6 +82,12 @@ final class PreferencesStore: ObservableObject {
         update { $0[keyPath: keyPath] = thickness }
     }
 
+    /// Toggles whether pinned lines mirror the measurement-mode thickness.
+    /// `validated()` keeps the two values in sync while locked.
+    func setPinnedLineThicknessLocked(_ locked: Bool) {
+        update { $0.pinnedLineThicknessLocked = locked }
+    }
+
     func resetToDefaults() {
         update { $0 = .default }
     }

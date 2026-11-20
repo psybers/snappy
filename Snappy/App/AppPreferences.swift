@@ -100,6 +100,8 @@ struct AppPreferences: Codable, Equatable {
     var pinnedLineThickness = 1.0
     var guidelineLineThickness = 1.0
     var rectangleLineThickness = 1.0
+    /// When true, pinned lines mirror the measurement-mode thickness.
+    var pinnedLineThicknessLocked = true
     // Optional storage preserves decoding of preferences saved before tolerance settings existed.
     var edgeToleranceSettings: EdgeToleranceSettings?
     var edgeTolerance: EdgeToleranceSettings {
@@ -134,6 +136,29 @@ struct AppPreferences: Codable, Equatable {
                 result[keyPath: keyPath] = AppPreferences.default[keyPath: keyPath]
             }
         }
+        if result.pinnedLineThicknessLocked {
+            result.pinnedLineThickness = result.measurementLineThickness
+        }
         return result
+    }
+}
+
+extension AppPreferences {
+    /// Tolerant decoding: fields added after a preferences file was written
+    /// fall back to their defaults instead of failing the whole decode and
+    /// resetting every preference. Lives in an extension so the memberwise
+    /// initializer is preserved.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        shortcut = try container.decodeIfPresent(ShortcutConfiguration.self, forKey: .shortcut) ?? .default
+        measurementColor = try container.decodeIfPresent(ColorComponents.self, forKey: .measurementColor) ?? .measurementDefault
+        guidelineColor = try container.decodeIfPresent(ColorComponents.self, forKey: .guidelineColor) ?? .guidelineDefault
+        dimensionLabelFontSize = try container.decodeIfPresent(Double.self, forKey: .dimensionLabelFontSize) ?? 14
+        measurementLineThickness = try container.decodeIfPresent(Double.self, forKey: .measurementLineThickness) ?? 1
+        pinnedLineThickness = try container.decodeIfPresent(Double.self, forKey: .pinnedLineThickness) ?? 1
+        guidelineLineThickness = try container.decodeIfPresent(Double.self, forKey: .guidelineLineThickness) ?? 1
+        rectangleLineThickness = try container.decodeIfPresent(Double.self, forKey: .rectangleLineThickness) ?? 1
+        pinnedLineThicknessLocked = try container.decodeIfPresent(Bool.self, forKey: .pinnedLineThicknessLocked) ?? true
+        edgeToleranceSettings = try container.decodeIfPresent(EdgeToleranceSettings.self, forKey: .edgeToleranceSettings)
     }
 }

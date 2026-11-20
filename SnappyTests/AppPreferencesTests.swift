@@ -61,8 +61,45 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(invalid.validated(), .default)
     }
 
+    func testPreferencesSavedBeforeThicknessFieldsDecodeWithDefaults() throws {
+        var preferences = AppPreferences.default
+        preferences.dimensionLabelFontSize = 23
+        preferences.pinnedLineThicknessLocked = false
+        preferences.pinnedLineThickness = 6
+        let data = try JSONEncoder().encode(preferences)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        for key in ["measurementLineThickness", "pinnedLineThickness",
+                    "guidelineLineThickness", "rectangleLineThickness",
+                    "pinnedLineThicknessLocked"] {
+            object.removeValue(forKey: key)
+        }
+        let legacy = try JSONSerialization.data(withJSONObject: object)
+        let restored = try JSONDecoder().decode(AppPreferences.self, from: legacy).validated()
+        XCTAssertEqual(restored.dimensionLabelFontSize, 23)
+        XCTAssertEqual(restored.measurementLineThickness, 1)
+        XCTAssertEqual(restored.pinnedLineThickness, 1)
+        XCTAssertEqual(restored.guidelineLineThickness, 1)
+        XCTAssertEqual(restored.rectangleLineThickness, 1)
+        XCTAssertTrue(restored.pinnedLineThicknessLocked)
+    }
+
+    func testLockedPinnedThicknessMirrorsMeasurementThickness() {
+        var preferences = AppPreferences.default
+        preferences.pinnedLineThicknessLocked = true
+        preferences.measurementLineThickness = 4
+        preferences.pinnedLineThickness = 9
+        XCTAssertEqual(preferences.validated().pinnedLineThickness, 4)
+
+        preferences.pinnedLineThicknessLocked = false
+        preferences.pinnedLineThickness = 7
+        let validated = preferences.validated()
+        XCTAssertEqual(validated.pinnedLineThickness, 7)
+        XCTAssertEqual(validated.measurementLineThickness, 4)
+    }
+
     func testLineThicknessValidationAcceptsHalfPointValues() {
         var preferences = AppPreferences.default
+        preferences.pinnedLineThicknessLocked = false
         preferences.pinnedLineThickness = 2.5
         preferences.guidelineLineThickness = 10
         let validated = preferences.validated()

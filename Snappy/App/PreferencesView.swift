@@ -84,8 +84,13 @@ struct PreferencesView: View {
             }
 
             Section("Line thickness") {
-                thicknessRow("Measurement mode", keyPath: \.measurementLineThickness)
-                thicknessRow("Pinned lines", keyPath: \.pinnedLineThickness)
+                HStack(alignment: .center, spacing: 8) {
+                    VStack(spacing: 8) {
+                        thicknessRow("Measurement mode", keyPath: \.measurementLineThickness)
+                        pinnedThicknessRow()
+                    }
+                    pinnedLockButton()
+                }
                 thicknessRow("Guidelines", keyPath: \.guidelineLineThickness)
                 thicknessRow("Rectangles", keyPath: \.rectangleLineThickness)
                 Text("Hovering an annotation draws its lines slightly thicker.")
@@ -184,15 +189,57 @@ struct PreferencesView: View {
         )
     }
 
+    /// Shared width for the thickness row labels, sized to fit
+    /// "Measurement mode"; trailing alignment keeps both sliders flush.
+    private static let thicknessLabelWidth: CGFloat = 120
+
+    private func thicknessLabel(_ title: String) -> some View {
+        Text(title)
+            .frame(width: Self.thicknessLabelWidth, alignment: .trailing)
+    }
+
     private func thicknessRow(_ title: String, keyPath: WritableKeyPath<AppPreferences, Double>) -> some View {
         HStack {
-            Text(title)
+            thicknessLabel(title)
             Slider(value: thicknessBinding(for: keyPath), in: 1...10, step: 0.5)
                 .accessibilityLabel("\(title) line thickness")
             Text(thicknessText(store.preferences[keyPath: keyPath]))
                 .monospacedDigit()
                 .frame(width: 48, alignment: .trailing)
         }
+    }
+
+    private func pinnedThicknessRow() -> some View {
+        HStack {
+            thicknessLabel("Pinned lines")
+            Slider(value: pinnedThicknessBinding, in: 1...10, step: 0.5)
+                .disabled(store.preferences.pinnedLineThicknessLocked)
+                .accessibilityLabel("Pinned lines line thickness")
+            Text(thicknessText(store.preferences.pinnedLineThickness))
+                .monospacedDigit()
+                .frame(width: 48, alignment: .trailing)
+        }
+    }
+
+    private func pinnedLockButton() -> some View {
+        let locked = store.preferences.pinnedLineThicknessLocked
+        return Button {
+            store.setPinnedLineThicknessLocked(!locked)
+        } label: {
+            Image(systemName: locked ? "lock.fill" : "lock.open")
+                .frame(width: 18)
+        }
+        .buttonStyle(.borderless)
+        .help(locked
+            ? "Pinned lines match the measurement mode thickness. Click to adjust independently."
+            : "Pinned lines have an independent thickness. Click to match measurement mode.")
+    }
+
+    private var pinnedThicknessBinding: Binding<Double> {
+        Binding(
+            get: { store.preferences.pinnedLineThickness },
+            set: { store.setLineThickness($0, for: \.pinnedLineThickness) }
+        )
     }
 
     private func thicknessBinding(for keyPath: WritableKeyPath<AppPreferences, Double>) -> Binding<Double> {
