@@ -71,10 +71,24 @@ struct PreferencesView: View {
 
     private var generalTab: some View {
         Form {
-            Section("System Permissions") {
+            if let settingsOpenError {
+                Text(settingsOpenError)
+                    .foregroundStyle(.red)
+            }
+
+            Section(header:
+                Text("Accessibility Permission")
+                .headerProminence(.increased)
+                .bold()
+            ) {
                 if accessibilityPermissions.isTrusted {
                     Label("Accessibility permission is enabled.", systemImage: "checkmark.circle")
                         .foregroundStyle(.green)
+                    if !inputMonitor.keyboardMonitoringAvailable {
+                        Text("Accessibility is trusted, but global keyboard monitoring could not be started. Use the menu to exit measurement mode.")
+                            .font(.callout)
+                            .foregroundStyle(.orange)
+                    }
                 } else {
                     Text("Enable Snappy under Privacy & Security > Accessibility in System Settings. This permission allows Snappy to inspect the UI element under the pointer and receive H, V, and Escape while another app is active. The global shortcut and pointer tracking work separately. Some apps may not expose useful element boundaries.")
                         .font(.callout)
@@ -88,15 +102,15 @@ struct PreferencesView: View {
                         openPrivacyPane("Accessibility", query: "Privacy_Accessibility")
                     }
                 }
-                if accessibilityPermissions.isTrusted && !inputMonitor.keyboardMonitoringAvailable {
-                    Text("Accessibility is trusted, but global keyboard monitoring could not be started. Use the menu to exit measurement mode.")
-                        .font(.callout)
-                        .foregroundStyle(.orange)
-                }
-                if let settingsOpenError {
-                    Text(settingsOpenError)
-                        .foregroundStyle(.red)
-                }
+            }
+
+            Spacer().frame(height: 20)
+
+            Section(header:
+                Text("Screen Recording Permission")
+                .headerProminence(.increased)
+                .bold()
+            ) {
                 if screenRecordingPermissions.isAuthorized {
                     Label("Screen Recording permission is enabled.", systemImage: "checkmark.circle")
                         .foregroundStyle(.green)
@@ -122,33 +136,34 @@ struct PreferencesView: View {
 
     private var toleranceTab: some View {
         Form {
-            Section("Edge tolerance") {
-                Picker("Level", selection: Binding(
-                    get: { store.preferences.edgeTolerance.level },
-                    set: { store.setEdgeToleranceLevel($0) }
-                )) {
-                    ForEach(EdgeToleranceLevel.allCases) { level in
-                        Text(level.title).tag(level)
-                    }
+            Picker("Level", selection: Binding(
+                get: { store.preferences.edgeTolerance.level },
+                set: { store.setEdgeToleranceLevel($0) }
+            )) {
+                ForEach(EdgeToleranceLevel.allCases) { level in
+                    Text(level.title).tag(level)
                 }
-                Text("Zero is fixed at 0. Higher values ignore larger color differences.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                ForEach([EdgeToleranceLevel.low, .medium, .high]) { level in
-                    HStack {
-                        Text(level.title)
-                            .frame(width: 60, alignment: .leading)
-                        Slider(value: toleranceBinding(for: level), in: 1...100, step: 1)
-                            .accessibilityLabel("\(level.title) edge tolerance")
-                        Text("\(Int(toleranceBinding(for: level).wrappedValue))")
-                            .monospacedDigit()
-                            .frame(width: 32, alignment: .trailing)
-                    }
-                }
-                Text("Use T to cycle, − to decrease, and = to increase while measuring.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
+            Text("Zero is fixed at 0. Higher values ignore larger color differences.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Spacer().frame(height: 20)
+
+            ForEach([EdgeToleranceLevel.low, .medium, .high]) { level in
+                HStack {
+                    Text(level.title)
+                        .frame(width: 60, alignment: .leading)
+                    Slider(value: toleranceBinding(for: level), in: 1...100, step: 1)
+                        .accessibilityLabel("\(level.title) edge tolerance")
+                    Text("\(Int(toleranceBinding(for: level).wrappedValue))")
+                        .monospacedDigit()
+                        .frame(width: 32, alignment: .trailing)
+                }
+            }
+            Text("Use T to cycle through levels while measuring.\nPress − to go down a level and = to go up a level.\nPress opt+- and opt+= to temporarily decrease/increase tolernace.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             statusMessages
 
@@ -160,7 +175,21 @@ struct PreferencesView: View {
 
     private var appearanceTab: some View {
         Form {
-            Section("Appearance") {
+            HStack {
+                Text("Dimension label size")
+                Slider(value: fontSizeBinding, in: 8...48, step: 1)
+                Text("\(Int(store.preferences.dimensionLabelFontSize)) pt")
+                    .monospacedDigit()
+                    .frame(width: 48, alignment: .trailing)
+            }
+
+            Spacer().frame(height: 20)
+
+            Section(header:
+                Text("Colors")
+                .headerProminence(.increased)
+                .bold()
+            ) {
                 ColorPicker(
                     "Measurement indicators",
                     selection: colorBinding(for: \.measurementColor)
@@ -169,16 +198,15 @@ struct PreferencesView: View {
                     "Guidelines",
                     selection: colorBinding(for: \.guidelineColor)
                 )
-                HStack {
-                    Text("Dimension label size")
-                    Slider(value: fontSizeBinding, in: 8...48, step: 1)
-                    Text("\(Int(store.preferences.dimensionLabelFontSize)) pt")
-                        .monospacedDigit()
-                        .frame(width: 48, alignment: .trailing)
-                }
             }
 
-            Section("Line thickness") {
+            Spacer().frame(height: 20)
+
+            Section(header:
+                Text("Line thickness")
+                .headerProminence(.increased)
+                .bold()
+            ) {
                 HStack(alignment: .center, spacing: 8) {
                     VStack(spacing: 8) {
                         thicknessRow("Measurement mode", keyPath: \.measurementLineThickness)
@@ -203,13 +231,17 @@ struct PreferencesView: View {
 
     private var shortcutsTab: some View {
         Form {
-            Section("Measurement shortcut") {
+            Section(header:
+                Text("Global shortcut")
+                .headerProminence(.increased)
+                .bold()
+            ) {
                 HStack {
                     TextField("Key", text: shortcutKeyBinding)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 72)
                         .accessibilityLabel("Shortcut key")
-                    Text("The shortcut applies globally while Snappy is running.")
+                    Text("Starts/stops measurement mode.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
