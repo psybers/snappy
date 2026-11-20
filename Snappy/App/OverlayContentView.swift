@@ -203,7 +203,7 @@ final class TemporaryMeasurementOverlayView: NSView {
                     to: NSPoint(x: start.x + length, y: start.y),
                     horizontal: true,
                     color: measurementColor,
-                    lineWidth: isHovered ? 2 : 1
+                    lineWidth: strokeWidth(annotationPreferences.pinnedLineThickness, hovered: isHovered)
                 )
             case .verticalMeasurement(let start, let length):
                 drawDimensionLine(
@@ -211,12 +211,12 @@ final class TemporaryMeasurementOverlayView: NSView {
                     to: NSPoint(x: start.x, y: start.y + length),
                     horizontal: false,
                     color: measurementColor,
-                    lineWidth: isHovered ? 2 : 1
+                    lineWidth: strokeWidth(annotationPreferences.pinnedLineThickness, hovered: isHovered)
                 )
             case .guideline(let axis, let position):
                 guidelineColor.setStroke()
                 let line = NSBezierPath()
-                line.lineWidth = isHovered ? 2 : 1
+                line.lineWidth = strokeWidth(annotationPreferences.guidelineLineThickness, hovered: isHovered)
                 if axis == .horizontal {
                     line.move(to: NSPoint(x: bounds.minX, y: position))
                     line.line(to: NSPoint(x: bounds.maxX, y: position))
@@ -227,12 +227,18 @@ final class TemporaryMeasurementOverlayView: NSView {
                 line.stroke()
             case .rectangle(let rect):
                 measurementColor.setStroke()
-                let outline = NSBezierPath(
+                let lineWidth = strokeWidth(annotationPreferences.rectangleLineThickness, hovered: isHovered)
+                let rectPath = NSBezierPath(
                     rect: NSRect(x: rect.minX, y: rect.minY, width: rect.size.width, height: rect.size.height)
                 )
-                outline.lineWidth = isHovered ? 2 : 1
+                // Outset by half the line width so the stroke lies entirely
+                // outside the highlighted area instead of straddling its edge.
+                let outline = NSBezierPath(
+                    rect: rectPath.bounds.insetBy(dx: -lineWidth / 2, dy: -lineWidth / 2)
+                )
+                outline.lineWidth = lineWidth
                 measurementColor.withAlphaComponent(0.08).setFill()
-                outline.fill()
+                rectPath.fill()
                 outline.stroke()
             }
             if let text = AnnotationLayout.labelText(for: annotation.geometry),
@@ -408,8 +414,9 @@ final class TemporaryMeasurementOverlayView: NSView {
         color.withAlphaComponent(0.12).setFill()
         rect.fill()
         color.setStroke()
-        let outline = NSBezierPath(rect: rect)
-        outline.lineWidth = 1
+        let lineWidth = CGFloat(annotationPreferences.rectangleLineThickness)
+        let outline = NSBezierPath(rect: rect.insetBy(dx: -lineWidth / 2, dy: -lineWidth / 2))
+        outline.lineWidth = lineWidth
         outline.setLineDash([4, 3], count: 2, phase: 0)
         outline.stroke()
     }
@@ -428,17 +435,20 @@ final class TemporaryMeasurementOverlayView: NSView {
         )
         let center = NSPoint(x: pointer.x, y: pointer.y)
 
+        let lineWidth = strokeWidth(preferences.measurementLineThickness, hovered: false)
         drawDimensionLine(
             from: NSPoint(x: rect.minX, y: center.y),
             to: NSPoint(x: rect.maxX, y: center.y),
             horizontal: true,
-            color: color
+            color: color,
+            lineWidth: lineWidth
         )
         drawDimensionLine(
             from: NSPoint(x: center.x, y: rect.minY),
             to: NSPoint(x: center.x, y: rect.maxY),
             horizontal: false,
-            color: color
+            color: color,
+            lineWidth: lineWidth
         )
         drawLabel(
             TemporaryDimensionLabels(candidate: candidate).text,
@@ -450,12 +460,16 @@ final class TemporaryMeasurementOverlayView: NSView {
     private func drawCrosshair(pointer: Point2D, preferences: AppPreferences) {
         Self.color(from: preferences.measurementColor).setStroke()
         let lines = NSBezierPath()
-        lines.lineWidth = 1
+        lines.lineWidth = CGFloat(preferences.measurementLineThickness)
         lines.move(to: NSPoint(x: bounds.minX, y: pointer.y))
         lines.line(to: NSPoint(x: bounds.maxX, y: pointer.y))
         lines.move(to: NSPoint(x: pointer.x, y: bounds.minY))
         lines.line(to: NSPoint(x: pointer.x, y: bounds.maxY))
         lines.stroke()
+    }
+
+    private func strokeWidth(_ base: Double, hovered: Bool) -> CGFloat {
+        CGFloat(base) + (hovered ? 1 : 0)
     }
 
     private func drawDimensionLine(

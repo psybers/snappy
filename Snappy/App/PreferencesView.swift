@@ -83,6 +83,16 @@ struct PreferencesView: View {
                 }
             }
 
+            Section("Line thickness") {
+                thicknessRow("Measurement mode", keyPath: \.measurementLineThickness)
+                thicknessRow("Pinned lines", keyPath: \.pinnedLineThickness)
+                thicknessRow("Guidelines", keyPath: \.guidelineLineThickness)
+                thicknessRow("Rectangles", keyPath: \.rectangleLineThickness)
+                Text("Hovering an annotation draws its lines slightly thicker.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("System Permissions") {
                 if accessibilityPermissions.isTrusted {
                     Label("Accessibility permission is enabled.", systemImage: "checkmark.circle")
@@ -172,6 +182,28 @@ struct PreferencesView: View {
             get: { store.preferences.dimensionLabelFontSize },
             set: { store.setDimensionLabelFontSize($0) }
         )
+    }
+
+    private func thicknessRow(_ title: String, keyPath: WritableKeyPath<AppPreferences, Double>) -> some View {
+        HStack {
+            Text(title)
+            Slider(value: thicknessBinding(for: keyPath), in: 1...10, step: 0.5)
+                .accessibilityLabel("\(title) line thickness")
+            Text(thicknessText(store.preferences[keyPath: keyPath]))
+                .monospacedDigit()
+                .frame(width: 48, alignment: .trailing)
+        }
+    }
+
+    private func thicknessBinding(for keyPath: WritableKeyPath<AppPreferences, Double>) -> Binding<Double> {
+        Binding(
+            get: { store.preferences[keyPath: keyPath] },
+            set: { store.setLineThickness($0, for: keyPath) }
+        )
+    }
+
+    private func thicknessText(_ value: Double) -> String {
+        value == value.rounded() ? "\(Int(value)) pt" : String(format: "%.1f pt", value)
     }
 
     private func toleranceBinding(for level: EdgeToleranceLevel) -> Binding<Double> {

@@ -46,13 +46,30 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(AppPreferences.default.measurementColor, .measurementDefault)
         XCTAssertEqual(AppPreferences.default.guidelineColor, .guidelineDefault)
         XCTAssertEqual(AppPreferences.default.dimensionLabelFontSize, 14)
+        XCTAssertEqual(AppPreferences.default.measurementLineThickness, 1)
+        XCTAssertEqual(AppPreferences.default.pinnedLineThickness, 1)
+        XCTAssertEqual(AppPreferences.default.guidelineLineThickness, 1)
+        XCTAssertEqual(AppPreferences.default.rectangleLineThickness, 1)
 
         var invalid = AppPreferences.default
         invalid.shortcut = ShortcutConfiguration(key: "escape", modifiers: [.command])
         invalid.measurementColor.red = .infinity
         invalid.dimensionLabelFontSize = 100
+        invalid.rectangleLineThickness = 0
+        invalid.guidelineLineThickness = .infinity
 
         XCTAssertEqual(invalid.validated(), .default)
+    }
+
+    func testLineThicknessValidationAcceptsHalfPointValues() {
+        var preferences = AppPreferences.default
+        preferences.pinnedLineThickness = 2.5
+        preferences.guidelineLineThickness = 10
+        let validated = preferences.validated()
+        XCTAssertEqual(validated.pinnedLineThickness, 2.5)
+        XCTAssertEqual(validated.guidelineLineThickness, 10)
+        XCTAssertEqual(validated.measurementLineThickness, 1)
+        XCTAssertEqual(validated.rectangleLineThickness, 1)
     }
 
     func testShortcutNormalizationRequiresSingleAlphanumericAndModifier() {

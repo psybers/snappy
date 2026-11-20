@@ -96,6 +96,10 @@ struct AppPreferences: Codable, Equatable {
     var measurementColor = ColorComponents.measurementDefault
     var guidelineColor = ColorComponents.guidelineDefault
     var dimensionLabelFontSize = 14.0
+    var measurementLineThickness = 1.0
+    var pinnedLineThickness = 1.0
+    var guidelineLineThickness = 1.0
+    var rectangleLineThickness = 1.0
     // Optional storage preserves decoding of preferences saved before tolerance settings existed.
     var edgeToleranceSettings: EdgeToleranceSettings?
     var edgeTolerance: EdgeToleranceSettings {
@@ -119,6 +123,16 @@ struct AppPreferences: Codable, Equatable {
         }
         if !dimensionLabelFontSize.isFinite || !(8...48).contains(dimensionLabelFontSize) {
             result.dimensionLabelFontSize = AppPreferences.default.dimensionLabelFontSize
+        }
+        let thicknessKeyPaths: [WritableKeyPath<AppPreferences, Double>] = [
+            \.measurementLineThickness, \.pinnedLineThickness,
+            \.guidelineLineThickness, \.rectangleLineThickness,
+        ]
+        for keyPath in thicknessKeyPaths {
+            let value = result[keyPath: keyPath]
+            if !value.isFinite || !(1...10).contains(value) {
+                result[keyPath: keyPath] = AppPreferences.default[keyPath: keyPath]
+            }
         }
         return result
     }

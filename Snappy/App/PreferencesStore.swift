@@ -74,6 +74,14 @@ final class PreferencesStore: ObservableObject {
         update { $0.dimensionLabelFontSize = size }
     }
 
+    func setLineThickness(_ thickness: Double, for keyPath: WritableKeyPath<AppPreferences, Double>) {
+        guard thickness.isFinite, (1...10).contains(thickness) else {
+            validationMessage = "Line thickness must be between 1 and 10 points."
+            return
+        }
+        update { $0[keyPath: keyPath] = thickness }
+    }
+
     func resetToDefaults() {
         update { $0 = .default }
     }
