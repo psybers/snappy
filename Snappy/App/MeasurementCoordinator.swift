@@ -58,6 +58,9 @@ final class MeasurementCoordinator: ObservableObject {
     /// Set when an annotation hotkey fires during crosshair mode: keeps
     /// crosshair suspended until Shift is released and pressed again.
     private var crosshairSuppressed = false
+    /// While an annotation drag is in progress, Shift must not arm crosshair
+    /// mode — the drag owns the pointer until mouse-up.
+    private var annotationDragActive = false
 
     private let moveCursor: @MainActor (Point2D, Double, Double) -> Point2D?
 
@@ -72,6 +75,7 @@ final class MeasurementCoordinator: ObservableObject {
     ) {
         ignoresActivationShift = shiftHeldAtActivation
         crosshairSuppressed = false
+        annotationDragActive = false
         let validDisplays = displays.filter(\.isValid)
         // Annotations already on screen (e.g. after Restore Last Session) stay in place.
         if let existing = activeSession, existing.annotationCount > 0 {
@@ -173,7 +177,12 @@ final class MeasurementCoordinator: ObservableObject {
             ignoresActivationShift = false
             crosshairSuppressed = false
         }
-        return shiftHeld && !ignoresActivationShift && !crosshairSuppressed
+        return shiftHeld && !ignoresActivationShift && !crosshairSuppressed && !annotationDragActive
+    }
+
+    /// Called by the annotation interaction layer while a drag is in flight.
+    func setAnnotationDragActive(_ active: Bool) {
+        annotationDragActive = active
     }
 
     func updateShiftState(_ shiftHeld: Bool) {

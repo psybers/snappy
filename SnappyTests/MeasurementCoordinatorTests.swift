@@ -305,6 +305,23 @@ final class MeasurementCoordinatorTests: XCTestCase {
         XCTAssertTrue(coordinator.mode.shiftHeld)
     }
 
+    func testShiftDoesNotArmCrosshairDuringAnnotationDrag() {
+        let coordinator = MeasurementCoordinator()
+        let pointer = Point2D(x: 10, y: 20)
+        coordinator.startFreshSession(displays: [], pointer: pointer)
+
+        coordinator.setAnnotationDragActive(true)
+        coordinator.updateShiftState(true)
+        XCTAssertFalse(coordinator.mode.shiftHeld)
+        coordinator.pointerMoved(to: Point2D(x: 30, y: 40), shiftHeld: true)
+        XCTAssertFalse(coordinator.mode.shiftHeld)
+
+        // Once the drag ends, a still-held Shift arms crosshair mode.
+        coordinator.setAnnotationDragActive(false)
+        coordinator.updateShiftState(true)
+        XCTAssertTrue(coordinator.mode.shiftHeld)
+    }
+
     private func makeDisplay(id: String) -> DisplayDescriptor {
         DisplayDescriptor(
             id: id,

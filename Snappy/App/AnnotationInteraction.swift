@@ -562,7 +562,7 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
         if let localMonitor { NSEvent.removeMonitor(localMonitor) }
         globalMonitor = nil
         localMonitor = nil
-        drag = nil
+        endDrag()
         surface.setAnnotationMouseHandler(nil)
         surface.setAnnotationHover(nil, onDisplay: nil)
     }
@@ -655,7 +655,7 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
     private func sessionChanged(_ session: MeasurementSession?) {
         groups = session?.displays ?? []
         if let drag, annotation(id: drag.id, displayID: drag.displayID) == nil {
-            self.drag = nil
+            endDrag()
             clearSnapping()
         }
         surface.presentAnnotations(groups, preferences: preferencesStore.preferences)
@@ -690,9 +690,15 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
     ) {
         drag = Drag(id: annotation.id, displayID: displayID, startLocal: local,
                     original: annotation.geometry, zone: zone)
+        coordinator.setAnnotationDragActive(true)
         if let display = surface.connectedDisplays.first(where: { $0.id == displayID }) {
             prepareSnapping(on: display)
         }
+    }
+
+    private func endDrag() {
+        drag = nil
+        coordinator.setAnnotationDragActive(false)
     }
 
     func annotationMouseDragged(displayID: String, at local: Point2D) {
@@ -700,7 +706,7 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
         // rather than resuming it from a stale origin when Shift is released.
         if coordinator.mode.shiftHeld {
             if drag != nil {
-                drag = nil
+                endDrag()
                 clearSnapping()
             }
             return
@@ -743,8 +749,8 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
 
     func annotationMouseUp(displayID: String, at local: Point2D) {
         guard drag != nil else { return }
+        endDrag()
         clearSnapping()
-        drag = nil
         // mouseMoved monitors don't fire while dragging, so the cached pointer is stale.
         let location = NSEvent.mouseLocation
         lastGlobalPointer = Point2D(x: location.x, y: location.y)
