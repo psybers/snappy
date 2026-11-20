@@ -33,7 +33,6 @@ struct PreferencesView: View {
     @ObservedObject private var screenRecordingPermissions = ScreenRecordingPermissionManager.shared
     @State private var settingsOpenError: String?
     @State private var selectedTab: PreferencesTab = .general
-    @State private var tabContentHeights: [PreferencesTab: CGFloat] = [:]
 
     init(store: PreferencesStore = .shared) {
         self.store = store
@@ -55,8 +54,6 @@ struct PreferencesView: View {
             }
         }
         .scenePadding()
-        .frame(width: 560)
-        .background(WindowResizeAnimator(targetHeight: targetWindowHeight))
         .navigationTitle("Snappy Preferences")
         .background(PreferencesWindowFocus())
         .onAppear {
@@ -118,12 +115,8 @@ struct PreferencesView: View {
 
             statusMessages
         }
+        .frame(width: 520)
         .fixedSize(horizontal: false, vertical: true)
-        .onGeometryChange(for: CGFloat.self) { proxy in
-            proxy.size.height
-        } action: { height in
-            recordHeight(.general, height)
-        }
     }
 
     private var toleranceTab: some View {
@@ -160,12 +153,8 @@ struct PreferencesView: View {
 
             restoreDefaultsButton { store.resetEdgeToleranceToDefaults() }
         }
+        .frame(width: 520)
         .fixedSize(horizontal: false, vertical: true)
-        .onGeometryChange(for: CGFloat.self) { proxy in
-            proxy.size.height
-        } action: { height in
-            recordHeight(.tolerance, height)
-        }
     }
 
     private var appearanceTab: some View {
@@ -207,12 +196,8 @@ struct PreferencesView: View {
 
             restoreDefaultsButton { store.resetAppearanceToDefaults() }
         }
+        .frame(width: 520)
         .fixedSize(horizontal: false, vertical: true)
-        .onGeometryChange(for: CGFloat.self) { proxy in
-            proxy.size.height
-        } action: { height in
-            recordHeight(.appearance, height)
-        }
     }
 
     private var shortcutsTab: some View {
@@ -242,32 +227,8 @@ struct PreferencesView: View {
 
             restoreDefaultsButton { store.resetShortcutToDefaults() }
         }
+        .frame(width: 520)
         .fixedSize(horizontal: false, vertical: true)
-        .onGeometryChange(for: CGFloat.self) { proxy in
-            proxy.size.height
-        } action: { height in
-            recordHeight(.shortcuts, height)
-        }
-    }
-
-    /// `TabView` lays out every tab's form at the selected tab's height, so
-    /// each form's geometry reports the *selected* tab's height — not its own.
-    /// Only the selected tab's report is trustworthy; other tabs keep their
-    /// last reported height until they are selected again.
-    private func recordHeight(_ tab: PreferencesTab, _ height: CGFloat) {
-        guard selectedTab == tab, height > 50 else { return }
-        tabContentHeights[tab] = height
-    }
-
-    /// Height of everything around a tab's content: the tab bar plus
-    /// `.scenePadding()` margins. Constant across tabs.
-    private static let tabChromeHeight: CGFloat = 70
-
-    /// Window content height for the selected tab, or nil until that tab's
-    /// form has reported its height (the window then keeps its current size
-    /// for a frame before animating to fit).
-    private var targetWindowHeight: CGFloat? {
-        tabContentHeights[selectedTab].map { $0 + Self.tabChromeHeight }
     }
 
     /// Validation and persistence errors apply to every tab's controls, so
@@ -416,49 +377,6 @@ struct PreferencesView: View {
             return
         }
         settingsOpenError = nil
-    }
-}
-
-/// Animates the settings window's height to fit the selected tab. The desired
-/// content height is measured by the owning view from each tab form's live
-/// geometry report, so transient content (permission status, validation
-/// messages) is always accounted for.
-struct WindowResizeAnimator: NSViewRepresentable {
-    /// Desired window content height in points, or nil to leave the window
-    /// at its current size.
-    let targetHeight: CGFloat?
-
-    func makeNSView(context: Context) -> NSView { NSView() }
-
-    func makeCoordinator() -> Coordinator { Coordinator() }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async {
-            guard let window = nsView.window,
-                  let contentView = window.contentView,
-                  let targetHeight else { return }
-
-            guard abs(contentView.bounds.height - targetHeight) > 1,
-                  abs(context.coordinator.lastTargetHeight - targetHeight) > 0.5 else { return }
-            context.coordinator.lastTargetHeight = targetHeight
-
-            // Width is pinned to the TabView's fixed frame width.
-            let targetSize = NSSize(width: 560, height: targetHeight)
-            let newFrameSize = window.frameRect(forContentRect: NSRect(origin: .zero, size: targetSize)).size
-
-            var frame = window.frame
-            // Keep top-left corner pinned like standard macOS Settings windows
-            frame.origin.y += (frame.height - newFrameSize.height)
-            frame.size = newFrameSize
-
-            window.setFrame(frame, display: true, animate: true)
-        }
-    }
-
-    /// Remembers the last height an animation was started for, so unrelated
-    /// view updates can't retrigger (and restart) the same resize mid-flight.
-    final class Coordinator {
-        var lastTargetHeight: CGFloat = 0
     }
 }
 
