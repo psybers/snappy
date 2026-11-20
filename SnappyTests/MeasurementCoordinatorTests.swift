@@ -40,6 +40,33 @@ final class MeasurementCoordinatorTests: XCTestCase {
         XCTAssertEqual(nudges, [-1, 1, -1, 1])
     }
 
+    func testHeldOptionToleranceKeyRepeatsUntilReleased() {
+        let coordinator = MeasurementCoordinator()
+        var nudges: [Int] = []
+        let subscription = coordinator.temporaryToleranceAdjustments.sink { nudges.append($0) }
+        defer { subscription.cancel() }
+        let service = GlobalShortcutService(
+            coordinator: coordinator, inputMonitor: .shared,
+            displayManager: .shared, preferencesStore: .shared)
+        coordinator.startFreshSession(displays: [], pointer: Point2D(x: 50, y: 50))
+
+        service.handleHotKey(identifier: 0xA11) // Option+=
+        service.repeatHotKey()
+        service.repeatHotKey()
+        service.handleHotKeyRelease(identifier: 0xA10) // Different key: no stop.
+        service.repeatHotKey()
+        service.handleHotKeyRelease(identifier: 0xA11)
+        service.repeatHotKey()
+        XCTAssertEqual(nudges, [1, 1, 1, 1])
+
+        // Pressing the opposite nudge switches the repeating key.
+        service.handleHotKey(identifier: 0xA10) // Option+-
+        service.repeatHotKey()
+        service.handleHotKeyRelease(identifier: 0xA10)
+        service.repeatHotKey()
+        XCTAssertEqual(nudges, [1, 1, 1, 1, -1, -1])
+    }
+
     func testHeldArrowRepeatsUntilReleasedOrMeasurementStops() {
         var moveCount = 0
         let coordinator = MeasurementCoordinator { point, dx, dy in
@@ -52,24 +79,24 @@ final class MeasurementCoordinatorTests: XCTestCase {
         coordinator.startFreshSession(displays: [], pointer: Point2D(x: 50, y: 50))
         service.handleHotKey(identifier: 0xA06) // Right arrow.
         XCTAssertEqual(moveCount, 1)
-        service.repeatArrow()
-        service.repeatArrow()
+        service.repeatHotKey()
+        service.repeatHotKey()
         XCTAssertEqual(moveCount, 3)
         service.handleHotKeyRelease(identifier: 0xA05) // A different key must not stop it.
-        service.repeatArrow()
+        service.repeatHotKey()
         XCTAssertEqual(moveCount, 4)
         service.handleHotKeyRelease(identifier: 0xA06)
-        service.repeatArrow()
+        service.repeatHotKey()
         XCTAssertEqual(moveCount, 4)
 
         let beforeShift = coordinator.mode.pointer!.x
         service.handleHotKey(identifier: 0xA0A) // Shift+Right arrow.
         XCTAssertEqual(coordinator.mode.pointer?.x, beforeShift + 10)
         coordinator.stop()
-        service.repeatArrow()
+        service.repeatHotKey()
         XCTAssertEqual(moveCount, 5)
         coordinator.startFreshSession(displays: [], pointer: Point2D(x: 50, y: 50))
-        service.repeatArrow()
+        service.repeatHotKey()
         XCTAssertEqual(moveCount, 5)
     }
 

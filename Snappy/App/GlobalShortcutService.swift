@@ -52,8 +52,8 @@ final class GlobalShortcutService: ObservableObject {
     private var isStarted = false
     private var escapeHotKey: EventHotKeyRef?
     private var annotationHotKeys: [UInt32: EventHotKeyRef] = [:]
-    private var arrowRepeatTimer: Timer?
-    private var repeatingArrowID: UInt32?
+    private var repeatTimer: Timer?
+    private var repeatingHotKeyID: UInt32?
     // Carbon hotkeys need no Accessibility/Input Monitoring permission, unlike global key monitors.
     // The dictionary keys are arbitrary unique hotkey IDs (0xA01+ here, 0xE5C for Escape).
     private static let annotationKeys: [UInt32: (key: String, code: Int, modifiers: Set<ShortcutModifier>)] = [
@@ -74,6 +74,11 @@ final class GlobalShortcutService: ObservableObject {
         0xA0F: ("=", kVK_ANSI_Equal, []),
         0xA10: ("-", kVK_ANSI_Minus, [.option]),
         0xA11: ("=", kVK_ANSI_Equal, [.option]),
+    ]
+    /// Hotkeys that keep firing on the system key-repeat cadence while held:
+    /// the arrow keys move the pointer and Option+- / Option+= nudge tolerance.
+    private static let repeatingHotKeyIDs: Set<UInt32> = [
+        0xA05, 0xA06, 0xA07, 0xA08, 0xA09, 0xA0A, 0xA0B, 0xA0C, 0xA10, 0xA11,
     ]
     private var modeSubscription: AnyCancellable?
     private var toleranceSubscription: AnyCancellable?
@@ -159,17 +164,17 @@ final class GlobalShortcutService: ObservableObject {
             return
         }
         if let identifier, let entry = Self.annotationKeys[identifier] {
-            if (123...126).contains(entry.code) {
-                guard coordinator.mode.isActive, repeatingArrowID != identifier else { return }
-                stopArrowRepeat()
-                repeatingArrowID = identifier
+            if Self.repeatingHotKeyIDs.contains(identifier) {
+                guard coordinator.mode.isActive, repeatingHotKeyID != identifier else { return }
+                stopHotKeyRepeat()
+                repeatingHotKeyID = identifier
                 let timer = Timer(fire: Date().addingTimeInterval(NSEvent.keyRepeatDelay),
                                   interval: NSEvent.keyRepeatInterval, repeats: true) { [weak self] _ in
                     MainActor.assumeIsolated {
-                        self?.repeatArrow()
+                        self?.repeatHotKey()
                     }
                 }
-                arrowRepeatTimer = timer
+                repeatTimer = timer
                 RunLoop.main.add(timer, forMode: .common)
             }
             coordinator.keyDown(
@@ -192,20 +197,20 @@ final class GlobalShortcutService: ObservableObject {
     }
 
     func handleHotKeyRelease(identifier: UInt32) {
-        if repeatingArrowID == identifier { stopArrowRepeat() }
+        if repeatingHotKeyID == identifier { stopHotKeyRepeat() }
     }
 
-    private func stopArrowRepeat() {
-        arrowRepeatTimer?.invalidate()
-        arrowRepeatTimer = nil
-        repeatingArrowID = nil
+    private func stopHotKeyRepeat() {
+        repeatTimer?.invalidate()
+        repeatTimer = nil
+        repeatingHotKeyID = nil
     }
 
-    func repeatArrow() {
+    func repeatHotKey() {
         guard coordinator.mode.isActive,
-              let identifier = repeatingArrowID,
+              let identifier = repeatingHotKeyID,
               let entry = Self.annotationKeys[identifier] else {
-            stopArrowRepeat()
+            stopHotKeyRepeat()
             return
         }
         coordinator.keyDown(key: entry.key, keyCode: UInt16(entry.code),
@@ -324,7 +329,7 @@ final class GlobalShortcutService: ObservableObject {
     }
 
     private func setAnnotationHotKeys(enabled: Bool) {
-        if !enabled { stopArrowRepeat() }
+        if !enabled { stopHotKeyRepeat() }
         if enabled {
             guard eventHandler != nil else { return }
             for (id, entry) in Self.annotationKeys where annotationHotKeys[id] == nil {
