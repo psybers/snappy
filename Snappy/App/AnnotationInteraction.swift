@@ -526,6 +526,15 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
                 self?.handle(command)
             }
             .store(in: &cancellables)
+        // Shift enters crosshair mode: annotations stop being hoverable and
+        // the crosshair must keep drawing even over a pinned line. The
+        // publisher fires before `mode` is reassigned, so use the emitted
+        // value rather than reading `coordinator.mode` inside the sink.
+        coordinator.$mode
+            .sink { [weak self] mode in
+                self?.refreshHover(shiftHeld: mode.shiftHeld)
+            }
+            .store(in: &cancellables)
 
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] _ in
             let location = NSEvent.mouseLocation
@@ -618,7 +627,12 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
     }
 
     private func refreshHover() {
-        guard let point = lastGlobalPointer,
+        refreshHover(shiftHeld: coordinator.mode.shiftHeld)
+    }
+
+    private func refreshHover(shiftHeld: Bool) {
+        guard !shiftHeld,
+            let point = lastGlobalPointer,
             let display = surface.connectedDisplays.first(where: { $0.logicalBounds.contains(point) })
         else {
             surface.setAnnotationHover(nil, onDisplay: nil)
@@ -651,6 +665,7 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
     // MARK: Mouse handling
 
     func annotationMouseDown(displayID: String, at local: Point2D) {
+        guard !coordinator.mode.shiftHeld else { return }
         clearSnapping()
         guard let hit = hit(at: local, displayID: displayID) else { return }
         switch hit {
@@ -681,6 +696,15 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
     }
 
     func annotationMouseDragged(displayID: String, at local: Point2D) {
+        // Crosshair mode suspends annotation dragging; drop any active drag
+        // rather than resuming it from a stale origin when Shift is released.
+        if coordinator.mode.shiftHeld {
+            if drag != nil {
+                drag = nil
+                clearSnapping()
+            }
+            return
+        }
         guard let drag, drag.displayID == displayID,
             let display = surface.connectedDisplays.first(where: { $0.id == displayID })
         else {
@@ -1124,7 +1148,8 @@ final class AnnotationInteractionController: AnnotationMouseHandling {
     }
 
     func annotationRightMouseDown(displayID: String, at local: Point2D) {
-        guard case .body(let id) = hit(at: local, displayID: displayID),
+        guard !coordinator.mode.shiftHeld,
+            case .body(let id) = hit(at: local, displayID: displayID),
             let annotation = annotation(id: id, displayID: displayID),
             case .guideline = annotation.geometry
         else {

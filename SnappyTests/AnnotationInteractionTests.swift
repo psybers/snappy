@@ -421,6 +421,48 @@ final class AnnotationInteractionTests: XCTestCase {
         coordinator.startFreshSession(displays: [display], pointer: Point2D(x: -500, y: 300))
     }
 
+    func testCrosshairModeDisablesAnnotationHoverAndDragging() {
+        let coordinator = MeasurementCoordinator()
+        session(coordinator)
+        let rect = Rect2D(x: 100, y: 100, width: 300, height: 200)
+        let annotation = MeasurementAnnotation(displayID: "d1", geometry: .rectangle(rect))
+        coordinator.addAnnotation(annotation)
+        let surface = StubAnnotationSurface(displays: [display])
+        let controller = AnnotationInteractionController(
+            coordinator: coordinator, surface: surface,
+            preferencesStore: .shared, currentMeasurement: { nil },
+            snapCapturer: DelayedSnapCapturer(result: .failure(ScreenCaptureError.permissionDenied)))
+        controller.start()
+        defer { controller.stop() }
+
+        // Hovering the rectangle reports a hit while Shift is up. The display
+        // starts at global x=-1000, so local (120, 120) is global (-880, 120).
+        controller.pointerMoved(toGlobal: Point2D(x: -880, y: 120))
+        XCTAssertEqual(surface.lastHover, .body(annotation.id))
+
+        // Entering crosshair mode clears the hover so the crosshair keeps drawing.
+        coordinator.updateShiftState(true)
+        XCTAssertNil(surface.lastHover)
+
+        // Mouse events on the annotation are ignored while Shift is held.
+        controller.annotationMouseDown(displayID: "d1", at: Point2D(x: 120, y: 120))
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 200, y: 200))
+        controller.annotationMouseUp(displayID: "d1", at: Point2D(x: 200, y: 200))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .rectangle(rect))
+        XCTAssertEqual(coordinator.activeSession?.annotationCount, 1)
+
+        // Releasing Shift restores hover and interaction.
+        coordinator.updateShiftState(false)
+        controller.pointerMoved(toGlobal: Point2D(x: -880, y: 120))
+        XCTAssertEqual(surface.lastHover, .body(annotation.id))
+        controller.annotationMouseDown(displayID: "d1", at: Point2D(x: 120, y: 120))
+        controller.annotationMouseDragged(displayID: "d1", at: Point2D(x: 160, y: 160))
+        controller.annotationMouseUp(displayID: "d1", at: Point2D(x: 160, y: 160))
+        XCTAssertEqual(coordinator.activeSession?.displays[0].annotations[0].geometry,
+                       .rectangle(Rect2D(x: 140, y: 140, width: 300, height: 200)))
+    }
+
     func testAddMoveRemove() {
         let coordinator = MeasurementCoordinator()
         session(coordinator)

@@ -246,7 +246,13 @@ final class StubAnnotationSurface: AnnotationSurfacePresenting {
         connectedDisplays = displays
     }
 
+    var lastHover: AnnotationHit?
+    var lastHoverDisplayID: String?
+
     func presentAnnotations(_ groups: [DisplayAnnotations], preferences: AppPreferences) {}
-    func setAnnotationHover(_ hit: AnnotationHit?, onDisplay displayID: String?) {}
+    func setAnnotationHover(_ hit: AnnotationHit?, onDisplay displayID: String?) {
+        lastHover = hit
+        lastHoverDisplayID = displayID
+    }
     func setAnnotationMouseHandler(_ handler: AnnotationMouseHandling?) {}
 }
