@@ -277,6 +277,34 @@ final class MeasurementCoordinatorTests: XCTestCase {
         XCTAssertTrue(coordinator.mode.shiftHeld)
     }
 
+    func testAnnotationHotkeyExitsCrosshairUntilShiftIsReleased() {
+        let coordinator = MeasurementCoordinator()
+        let pointer = Point2D(x: 10, y: 20)
+        coordinator.startFreshSession(displays: [], pointer: pointer)
+        coordinator.pointerMoved(to: pointer, shiftHeld: true)
+        XCTAssertTrue(coordinator.mode.shiftHeld)
+
+        var commands: [MeasurementCommand] = []
+        let subscription = coordinator.commands.sink { commands.append($0) }
+        defer { subscription.cancel() }
+
+        coordinator.keyDown(key: "v", keyCode: 9, modifiers: [.shift])
+
+        XCTAssertEqual(commands, [.addVerticalGuideline(x: pointer.x)])
+        XCTAssertFalse(coordinator.mode.shiftHeld)
+
+        // Crosshair stays suspended while Shift remains held.
+        coordinator.updateShiftState(true)
+        XCTAssertFalse(coordinator.mode.shiftHeld)
+        coordinator.pointerMoved(to: Point2D(x: 30, y: 40), shiftHeld: true)
+        XCTAssertFalse(coordinator.mode.shiftHeld)
+
+        // Releasing and pressing Shift again re-arms crosshair mode.
+        coordinator.updateShiftState(false)
+        coordinator.updateShiftState(true)
+        XCTAssertTrue(coordinator.mode.shiftHeld)
+    }
+
     private func makeDisplay(id: String) -> DisplayDescriptor {
         DisplayDescriptor(
             id: id,

@@ -55,6 +55,9 @@ final class MeasurementCoordinator: ObservableObject {
     let temporaryToleranceAdjustments = PassthroughSubject<Int, Never>()
 
     private var ignoresActivationShift = false
+    /// Set when an annotation hotkey fires during crosshair mode: keeps
+    /// crosshair suspended until Shift is released and pressed again.
+    private var crosshairSuppressed = false
 
     private let moveCursor: @MainActor (Point2D, Double, Double) -> Point2D?
 
@@ -68,6 +71,7 @@ final class MeasurementCoordinator: ObservableObject {
         shiftHeldAtActivation: Bool = false
     ) {
         ignoresActivationShift = shiftHeldAtActivation
+        crosshairSuppressed = false
         let validDisplays = displays.filter(\.isValid)
         // Annotations already on screen (e.g. after Restore Last Session) stay in place.
         if let existing = activeSession, existing.annotationCount > 0 {
@@ -165,8 +169,11 @@ final class MeasurementCoordinator: ObservableObject {
 
     private func effectiveShiftState(_ shiftHeld: Bool) -> Bool {
         // The Shift in the activation chord must be released before crosshair mode is armed.
-        if !shiftHeld { ignoresActivationShift = false }
-        return shiftHeld && !ignoresActivationShift
+        if !shiftHeld {
+            ignoresActivationShift = false
+            crosshairSuppressed = false
+        }
+        return shiftHeld && !ignoresActivationShift && !crosshairSuppressed
     }
 
     func updateShiftState(_ shiftHeld: Bool) {
@@ -227,6 +234,9 @@ final class MeasurementCoordinator: ObservableObject {
             return
         }
         guard let pointer = mode.pointer else { return }
+        if (character == "h" || character == "v") && (modifiers.isEmpty || modifiers == [.shift]) {
+            exitCrosshairMode()
+        }
         if character == "h", modifiers.isEmpty {
             commands.send(.pinHorizontal(at: pointer))
         } else if character == "v", modifiers.isEmpty {
@@ -236,5 +246,14 @@ final class MeasurementCoordinator: ObservableObject {
         } else if character == "v", modifiers == [.shift] {
             commands.send(.addVerticalGuideline(x: pointer.x))
         }
+    }
+
+    /// Annotation hotkeys end crosshair mode immediately so the new annotation
+    /// is interactive; crosshair stays suspended until Shift is released and
+    /// pressed again.
+    private func exitCrosshairMode() {
+        guard case .tracking(let pointer, true) = mode else { return }
+        crosshairSuppressed = true
+        mode = .tracking(pointer: pointer, shiftHeld: false)
     }
 }
