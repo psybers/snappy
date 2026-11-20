@@ -148,7 +148,7 @@ struct PreferencesView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Spacer().frame(height: 20)
+            Divider()
 
             ForEach([EdgeToleranceLevel.low, .medium, .high]) { level in
                 HStack {
@@ -183,7 +183,7 @@ struct PreferencesView: View {
                     .frame(width: 48, alignment: .trailing)
             }
 
-            Spacer().frame(height: 20)
+            Divider()
 
             Section(header:
                 Text("Colors")
@@ -200,7 +200,7 @@ struct PreferencesView: View {
                 )
             }
 
-            Spacer().frame(height: 20)
+            Divider()
 
             Section(header:
                 Text("Line thickness")
@@ -280,9 +280,12 @@ struct PreferencesView: View {
     }
 
     private func restoreDefaultsButton(_ action: @escaping () -> Void) -> some View {
-        HStack {
-            Spacer()
-            Button("Restore Defaults", action: action)
+        VStack(alignment: .trailing) {
+            Spacer().frame(height: 20)
+            HStack {
+                Spacer()
+                Button("Restore Defaults", action: action)
+            }
         }
     }
 
