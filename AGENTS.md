@@ -370,6 +370,7 @@ Everything lives in the `Snappy` target under `Snappy/App/` (all files are in on
 - Open `Snappy.xcodeproj` in Xcode; build/run the **Snappy** scheme. Deployment target is macOS 26.0 (ScreenCaptureKit one-shot region capture).
 - Tests: `xcodebuild -project Snappy.xcodeproj -scheme Snappy -destination 'platform=macOS' test`
 - The app is a menu-bar agent (`MenuBarExtra`); it has no Dock icon or main window. Preferences opens via the SwiftUI `Settings` scene.
+- Before every commit that changes code, bump `CURRENT_PROJECT_VERSION` in `Snappy.xcodeproj/project.pbxproj` (both Debug and Release configs of the Snappy target) by one. `MARKETING_VERSION` tracks the release tag and is injected by CI; do not change it per-commit.
 
 ## File responsibilities
 
@@ -397,6 +398,7 @@ Everything lives in the `Snappy` target under `Snappy/App/` (all files are in on
 | `AppPreferences.swift` | Preference value types: `ShortcutConfiguration`, `ColorComponents`, `EdgeToleranceLevel`/`EdgeToleranceSettings`, `AppPreferences`. |
 | `PreferencesStore.swift` | Shared observable store; persists preferences (UserDefaults) and exposes the active `AppPreferences`. |
 | `PreferencesView.swift` | Tabbed SwiftUI settings view (General, Tolerance, Appearance, Shortcuts) + `PreferencesWindowPresenter` (focuses the settings window on every menu click). |
+| `UpdateChecker.swift` | Checks GitHub Releases for a newer version; installs via `brew upgrade --cask snappy` when the app was installed by Homebrew (detected via `$PREFIX/Caskroom/snappy`), otherwise downloads the release DMG, mounts it, and `ditto`s `Snappy.app` over the running bundle. Strips quarantine and offers restart. Auto-checks once at launch; also a manual menu item. |
 | `ScreenAccessProbe.swift` | `CGPreflightScreenCaptureAccess` can stay false after grant until relaunch, so this asks ScreenCaptureKit directly as a fallback probe. |
 
 ## Tests
