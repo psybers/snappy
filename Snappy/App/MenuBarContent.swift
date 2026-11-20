@@ -7,17 +7,6 @@ struct MenuBarContent: View {
     @ObservedObject private var coordinator = MeasurementCoordinator.shared
 
     var body: some View {
-        Button {
-            // Wait for menu tracking to finish before activating this menu-bar app.
-            DispatchQueue.main.async {
-                NSApp.activate(ignoringOtherApps: true)
-                openSettings()
-                PreferencesWindowPresenter.shared.focus()
-            }
-        } label: {
-            Label("Preferences...", systemImage: "gearshape")
-        }
-
         if coordinator.mode.isActive {
             Button("End Measurement Mode") {
                 coordinator.stop()
@@ -37,6 +26,19 @@ struct MenuBarContent: View {
         }
         .disabled(!persistence.hasAnnotations)
         .help("Remove all annotations from the active session.")
+
+        Divider()
+
+        Button {
+            // Wait for menu tracking to finish before activating this menu-bar app.
+            DispatchQueue.main.async {
+                NSApp.activate(ignoringOtherApps: true)
+                openSettings()
+                PreferencesWindowPresenter.shared.focus()
+            }
+        } label: {
+            Label("Preferences...", systemImage: "gearshape")
+        }
 
         Divider()
 
