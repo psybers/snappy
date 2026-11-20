@@ -486,12 +486,20 @@ final class TemporaryMeasurementOverlayView: NSView {
         line.line(to: end)
         // T-shaped end caps: a perpendicular bar at each end of the line.
         // Cap half-width scales with the stroke so thicker lines keep
-        // proportionally sized caps (5 pt at the default 1 pt width).
+        // proportionally sized caps (5 pt at the default 1 pt width), and
+        // each cap is inset along the line by half the stroke width so it
+        // sits fully inside the measured area instead of straddling its edge.
         let cap = lineWidth * 5
         let across = horizontal ? NSPoint(x: 0, y: cap) : NSPoint(x: cap, y: 0)
-        for point in [start, end] {
-            line.move(to: NSPoint(x: point.x - across.x, y: point.y - across.y))
-            line.line(to: NSPoint(x: point.x + across.x, y: point.y + across.y))
+        let span = hypot(end.x - start.x, end.y - start.y)
+        let ux = span > 0 ? (end.x - start.x) / span : 0
+        let uy = span > 0 ? (end.y - start.y) / span : 0
+        let inset = lineWidth / 2
+        for (point, direction) in [(start, 1.0), (end, -1.0)] {
+            let cx = point.x + ux * inset * direction
+            let cy = point.y + uy * inset * direction
+            line.move(to: NSPoint(x: cx - across.x, y: cy - across.y))
+            line.line(to: NSPoint(x: cx + across.x, y: cy + across.y))
         }
         line.stroke()
     }
